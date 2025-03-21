@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, IconButton, Checkbox, Button, Portal, Modal, useTheme } from 'react-native-paper';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RouteProp } from '@react-navigation/native';
+import { RouteProp, useNavigationState } from '@react-navigation/native';
 import QRCode from 'react-native-qrcode-svg';
 import * as Print from 'expo-print';
 import * as Linking from 'expo-linking';
@@ -19,6 +19,8 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
   const [list, setList] = useState<List | null>(null);
   const [showQR, setShowQR] = useState(false);
   const theme = useTheme();
+  const navigationState = useNavigationState(state => state);
+  const isDeepLinked = navigationState?.routes.length === 1;
 
   useEffect(() => {
     loadList();
@@ -137,12 +139,25 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>{list.title}</Text>
+        <View style={styles.headerLeft}>
+          {isDeepLinked && (
+            <IconButton
+              icon="home"
+              size={24}
+              onPress={() => navigation.reset({
+                index: 0,
+                routes: [{ name: 'Home' }],
+              })}
+              style={styles.headerButton}
+            />
+          )}
+          <Text style={styles.title}>{list.title}</Text>
+        </View>
         <IconButton
           icon="qrcode"
           size={24}
           onPress={() => setShowQR(true)}
-          style={styles.qrButton}
+          style={styles.headerButton}
         />
       </View>
 
@@ -216,11 +231,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 16,
   },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
+    marginLeft: 8,
   },
-  qrButton: {
+  headerButton: {
     margin: 0,
   },
   itemsList: {

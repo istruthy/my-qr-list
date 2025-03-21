@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, FlatList } from 'react-native';
+import { View, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { Text, FAB, Card, IconButton, useTheme } from 'react-native-paper';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
@@ -32,28 +32,30 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   };
 
   const renderItem = ({ item }: { item: List }) => (
-    <Card style={styles.card}>
-      <Card.Content style={styles.cardContent}>
-        <View style={styles.cardTextContainer}>
-          <Text style={styles.cardTitle}>{item.title}</Text>
-          <Text style={styles.cardSubtitle}>
-            {item.items.length} items
-          </Text>
-        </View>
-        <View style={styles.cardActions}>
-          <IconButton
-            icon="qrcode"
-            size={20}
-            onPress={() => navigation.navigate('ViewList', { listId: item.id })}
-          />
-          <IconButton
-            icon="delete"
-            size={20}
-            onPress={() => handleDeleteList(item.id)}
-          />
-        </View>
-      </Card.Content>
-    </Card>
+    <TouchableOpacity onPress={() => navigation.navigate('ViewList', { listId: item.id })}>
+      <Card style={styles.card}>
+        <Card.Content style={styles.cardContent}>
+          <View style={styles.cardTextContainer}>
+            <Text style={styles.cardTitle}>{item.title}</Text>
+            <Text style={styles.cardSubtitle}>
+              {item.items.length} items
+            </Text>
+          </View>
+          <View style={styles.cardActions}>
+            <IconButton
+              icon="qrcode"
+              size={20}
+              onPress={() => navigation.navigate('ViewList', { listId: item.id })}
+            />
+            <IconButton
+              icon="delete"
+              size={20}
+              onPress={() => handleDeleteList(item.id)}
+            />
+          </View>
+        </Card.Content>
+      </Card>
+    </TouchableOpacity>
   );
 
   return (
