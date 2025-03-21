@@ -68,7 +68,10 @@ export default function App() {
           <Stack.Screen
             name="ViewList"
             component={ViewListScreen}
-            options={{ title: 'View List' }}
+            options={{ 
+              headerTitle: '',
+              headerBackTitle: ' '
+            }}
           />
           <Stack.Screen
             name="ScanQR"

@@ -35,6 +35,14 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
     loadList();
   }, []);
 
+  useEffect(() => {
+    if (list) {
+      navigation.setOptions({
+        headerTitle: list.title
+      });
+    }
+  }, [list, navigation]);
+
   const loadList = async () => {
     const loadedList = await getListById(route.params.listId);
     if (loadedList) {
@@ -283,27 +291,8 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
               style={styles.headerButton}
             />
           )}
-          {isEditingTitle ? (
-            <TextInput
-              style={styles.titleInput}
-              value={editingTitle}
-              onChangeText={setEditingTitle}
-              onBlur={handleEditTitle}
-              onSubmitEditing={handleEditTitle}
-              autoFocus
-            />
-          ) : (
-            <Text style={styles.title} onPress={() => setIsEditingTitle(true)}>
-              {list.title}
-            </Text>
-          )}
         </View>
-        <IconButton
-          icon="qrcode"
-          size={24}
-          onPress={() => setShowQR(true)}
-          style={styles.headerButton}
-        />
+
       </View>
 
       <ScrollView style={styles.itemsList}>
