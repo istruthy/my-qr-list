@@ -20,6 +20,7 @@ import { RootStackParamList } from '../types';
 import { getListById, updateList } from '../utils/storage';
 import { List, ListItem } from '../types';
 import { generateUUID } from '../utils/uuid';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type ViewListScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'ViewList'>;
@@ -355,11 +356,16 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
         ))}
       </ScrollView>
 
-      <FAB
-        icon="plus"
-        style={[styles.fab2, { backgroundColor: theme.colors.secondary }]}
-        onPress={handleAddItem}
-      />
+      <SafeAreaView edges={['bottom']} style={styles.footer}>
+        <Button
+          mode="contained"
+          onPress={handleAddItem}
+          style={styles.addItemButton}
+          labelStyle={styles.buttonLabel}
+        >
+          Add Item
+        </Button>
+      </SafeAreaView>
 
       <FAB
         icon="qrcode"
@@ -481,6 +487,7 @@ const styles = StyleSheet.create({
   },
   itemsList: {
     flex: 1,
+    paddingBottom: 80,
   },
   itemContainer: {
     flexDirection: 'row',
@@ -557,20 +564,24 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 8,
   },
-  fab2: {
-    position: 'absolute',
-    margin: 16,
-    right: 0,
-    bottom: 0,
+  footer: {
+    paddingTop: 8,
   },
-
+  addItemButton: {
+    marginHorizontal: 16,
+    borderRadius: 40,
+    padding: 16,
+  },
+  buttonLabel: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
   fab: {
     position: 'absolute',
     margin: 16,
     right: 0,
     bottom: 70,
   },
-
   imagePickerButtons: {
     width: '100%',
     gap: 8,
