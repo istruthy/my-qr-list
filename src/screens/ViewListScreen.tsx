@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView, TextInput } from 'react-native';
+import { View, StyleSheet, ScrollView, TextInput, Image } from 'react-native';
 import { Text, IconButton, Checkbox, Button, Portal, Modal, useTheme, FAB } from 'react-native-paper';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp, useNavigationState } from '@react-navigation/native';
 import QRCode from 'react-native-qrcode-svg';
 import * as Print from 'expo-print';
 import * as Linking from 'expo-linking';
+import * as ImagePicker from 'expo-image-picker';
 import { RootStackParamList } from '../types';
 import { getListById, updateList } from '../utils/storage';
 import { List, ListItem } from '../types';
@@ -23,6 +24,9 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
   const [editingTitle, setEditingTitle] = useState('');
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editingItemText, setEditingItemText] = useState('');
+  const [editingItemImage, setEditingItemImage] = useState<string | null>(null);
+  const [showImagePickerModal, setShowImagePickerModal] = useState(false);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const theme = useTheme();
   const navigationState = useNavigationState(state => state);
   const isDeepLinked = navigationState?.routes.length === 1;
@@ -189,6 +193,73 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
     }
   };
 
+  const pickImage = async (itemId: string) => {
+    setSelectedItemId(itemId);
+    setShowImagePickerModal(true);
+  };
+
+  const handleImageSource = async (source: 'camera' | 'library') => {
+    setShowImagePickerModal(false);
+    if (!selectedItemId) return;
+
+    try {
+      const result = await (source === 'camera' 
+        ? ImagePicker.launchCameraAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.5,
+          })
+        : ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.5,
+          }));
+
+      if (!result.canceled && result.assets[0]) {
+        setEditingItemImage(result.assets[0].uri);
+        handleUpdateItemImage(selectedItemId, result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+    } finally {
+      setSelectedItemId(null);
+    }
+  };
+
+  const handleUpdateItemImage = async (itemId: string, imageUrl: string) => {
+    if (!list) return;
+
+    const updatedItems = list.items.map(item =>
+      item.id === itemId ? { ...item, imageUrl } : item
+    );
+
+    const updatedList = {
+      ...list,
+      items: updatedItems,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await handleUpdateList(updatedList);
+  };
+
+  const handleRemoveImage = async (itemId: string) => {
+    if (!list) return;
+
+    const updatedItems = list.items.map(item =>
+      item.id === itemId ? { ...item, imageUrl: undefined } : item
+    );
+
+    const updatedList = {
+      ...list,
+      items: updatedItems,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await handleUpdateList(updatedList);
+  };
+
   if (!list) {
     return (
       <View style={styles.container}>
@@ -242,29 +313,49 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
               status={item.completed ? 'checked' : 'unchecked'}
               onPress={() => toggleItem(item.id)}
             />
-            {editingItemId === item.id ? (
-              <TextInput
-                style={styles.itemInput}
-                value={editingItemText}
-                onChangeText={setEditingItemText}
-                onBlur={() => handleEditItem(item.id)}
-                onSubmitEditing={() => handleEditItem(item.id)}
-                autoFocus
-              />
-            ) : (
-              <Text
-                style={[
-                  styles.itemText,
-                  item.completed && styles.completedItem,
-                ]}
-                onPress={() => {
-                  setEditingItemId(item.id);
-                  setEditingItemText(item.text);
-                }}
-              >
-                {item.text}
-              </Text>
-            )}
+            <View style={styles.itemContent}>
+              {item.imageUrl ? (
+                <View style={styles.imageContainer}>
+                  <Image source={{ uri: item.imageUrl }} style={styles.thumbnail} />
+                  <IconButton
+                    icon="close-circle"
+                    size={16}
+                    onPress={() => handleRemoveImage(item.id)}
+                    style={styles.removeImageButton}
+                  />
+                </View>
+              ) : (
+                <IconButton
+                  icon="image-plus"
+                  size={24}
+                  onPress={() => pickImage(item.id)}
+                  style={styles.addImageButton}
+                />
+              )}
+              {editingItemId === item.id ? (
+                <TextInput
+                  style={styles.itemInput}
+                  value={editingItemText}
+                  onChangeText={setEditingItemText}
+                  onBlur={() => handleEditItem(item.id)}
+                  onSubmitEditing={() => handleEditItem(item.id)}
+                  autoFocus
+                />
+              ) : (
+                <Text
+                  style={[
+                    styles.itemText,
+                    item.completed && styles.completedItem,
+                  ]}
+                  onPress={() => {
+                    setEditingItemId(item.id);
+                    setEditingItemText(item.text);
+                  }}
+                >
+                  {item.text}
+                </Text>
+              )}
+            </View>
             <IconButton
               icon="delete"
               size={20}
@@ -307,6 +398,39 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
               style={styles.closeButton}
             >
               Close
+            </Button>
+          </View>
+        </Modal>
+
+        <Modal
+          visible={showImagePickerModal}
+          onDismiss={() => setShowImagePickerModal(false)}
+          contentContainerStyle={styles.modalContent}
+        >
+          <Text style={styles.modalTitle}>Add Image</Text>
+          <View style={styles.imagePickerButtons}>
+            <Button
+              mode="contained"
+              onPress={() => handleImageSource('camera')}
+              style={styles.imagePickerButton}
+              icon="camera"
+            >
+              Take Photo
+            </Button>
+            <Button
+              mode="contained"
+              onPress={() => handleImageSource('library')}
+              style={styles.imagePickerButton}
+              icon="image"
+            >
+              Choose from Library
+            </Button>
+            <Button
+              mode="outlined"
+              onPress={() => setShowImagePickerModal(false)}
+              style={styles.imagePickerButton}
+            >
+              Cancel
             </Button>
           </View>
         </Modal>
@@ -359,6 +483,33 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
   },
+  itemContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  imageContainer: {
+    position: 'relative',
+    marginRight: 8,
+  },
+  thumbnail: {
+    width: 40,
+    height: 40,
+    borderRadius: 4,
+  },
+  addImageButton: {
+    margin: 0,
+    marginRight: 8,
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    margin: 0,
+    backgroundColor: 'white',
+    borderRadius: 12,
+  },
   itemText: {
     flex: 1,
     marginLeft: 8,
@@ -409,5 +560,12 @@ const styles = StyleSheet.create({
     margin: 16,
     right: 0,
     bottom: 0,
+  },
+  imagePickerButtons: {
+    width: '100%',
+    gap: 8,
+  },
+  imagePickerButton: {
+    marginVertical: 4,
   },
 }); 

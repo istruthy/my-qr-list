@@ -3,6 +3,7 @@ export interface ListItem {
   text: string;
   completed: boolean;
   createdAt: string;
+  imageUrl?: string;
 }
 
 export interface List {
