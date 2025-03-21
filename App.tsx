@@ -27,7 +27,7 @@ export default function App() {
     <PaperProvider theme={theme}>
       <NavigationContainer
         linking={{
-          prefixes: [prefix, 'myqrlist://'],
+          prefixes: [prefix, 'myqrlist://', 'https://myqrlist.app'],
           config: {
             screens: {
               Home: 'home',

@@ -4,6 +4,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Button, useTheme } from 'react-native-paper';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
+import * as Linking from 'expo-linking';
 
 type ScanQRScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'ScanQR'>;
@@ -17,9 +18,9 @@ export const ScanQRScreen: React.FC<ScanQRScreenProps> = ({ navigation }) => {
   const handleBarCodeScanned = ({ data }: { data: string }) => {
     setScanned(true);
     
-    // Check if the scanned data is a valid myqrlist URL
-    if (data.startsWith('myqrlist://list/')) {
-      const listId = data.replace('myqrlist://list/', '');
+    // Check if the scanned data is a valid URL
+    if (data.startsWith('myqrlist://list/') || data.startsWith('exp://')) {
+      const listId = data.split('/').pop() || '';
       navigation.replace('ViewList', { listId });
     }
   };

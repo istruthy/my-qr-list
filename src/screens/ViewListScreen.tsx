@@ -5,6 +5,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import QRCode from 'react-native-qrcode-svg';
 import * as Print from 'expo-print';
+import * as Linking from 'expo-linking';
 import { RootStackParamList } from '../types';
 import { getListById, updateList } from '../utils/storage';
 import { List, ListItem } from '../types';
@@ -65,6 +66,7 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
     if (!list) return;
 
     try {
+      const expoUrl = Linking.createURL(`/list/${list.id}`);
       const html = `
         <html>
           <head>
@@ -106,7 +108,7 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
             <div class="container">
               <h1>${list.title}</h1>
               <div class="qr-container">
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`myqrlist://list/${list.id}`)}" width="200" height="200" />
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(expoUrl)}" width="200" height="200" />
               </div>
               <p class="instructions">Scan this QR code to view the list</p>
             </div>
@@ -177,7 +179,7 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
           <Text style={styles.modalTitle}>Scan to View List</Text>
           <View style={styles.qrContainer}>
             <QRCode
-              value={`myqrlist://list/${list.id}`}
+              value={Linking.createURL(`/list/${list.id}`)}
               size={200}
             />
           </View>
