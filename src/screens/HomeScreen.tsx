@@ -96,7 +96,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <Searchbar
-        placeholder="Search items..."
+        placeholder="Search your items..."
         onChangeText={handleSearch}
         value={searchQuery}
         style={styles.searchBar}

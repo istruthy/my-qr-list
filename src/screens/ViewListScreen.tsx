@@ -49,6 +49,15 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
     if (list) {
       navigation.setOptions({
         headerTitle: list.title,
+        headerRight: () => (
+          <IconButton
+            icon="qrcode"
+            size={24}
+            onPress={() => setShowQR(true)}
+            style={styles.headerButton}
+            iconColor="white"
+          />
+        ),
       });
     }
   }, [list, navigation]);
@@ -367,12 +376,6 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
         </Button>
       </SafeAreaView>
 
-      <FAB
-        icon="qrcode"
-        style={[styles.fab, { backgroundColor: theme.colors.primary }]}
-        onPress={() => setShowQR(true)}
-      />
-
       <Portal>
         <Modal
           visible={showQR}
@@ -575,12 +578,6 @@ const styles = StyleSheet.create({
   buttonLabel: {
     fontSize: 18,
     fontWeight: '600',
-  },
-  fab: {
-    position: 'absolute',
-    margin: 16,
-    right: 0,
-    bottom: 70,
   },
   imagePickerButtons: {
     width: '100%',
