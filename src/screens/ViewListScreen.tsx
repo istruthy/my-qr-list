@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
-import { Text, IconButton, Checkbox, Button, Portal, Modal, useTheme } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, TextInput } from 'react-native';
+import { Text, IconButton, Checkbox, Button, Portal, Modal, useTheme, FAB } from 'react-native-paper';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp, useNavigationState } from '@react-navigation/native';
 import QRCode from 'react-native-qrcode-svg';
@@ -9,6 +9,7 @@ import * as Linking from 'expo-linking';
 import { RootStackParamList } from '../types';
 import { getListById, updateList } from '../utils/storage';
 import { List, ListItem } from '../types';
+import { generateUUID } from '../utils/uuid';
 
 type ViewListScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'ViewList'>;
@@ -18,6 +19,10 @@ type ViewListScreenProps = {
 export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, route }) => {
   const [list, setList] = useState<List | null>(null);
   const [showQR, setShowQR] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editingTitle, setEditingTitle] = useState('');
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editingItemText, setEditingItemText] = useState('');
   const theme = useTheme();
   const navigationState = useNavigationState(state => state);
   const isDeepLinked = navigationState?.routes.length === 1;
@@ -30,7 +35,13 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
     const loadedList = await getListById(route.params.listId);
     if (loadedList) {
       setList(loadedList);
+      setEditingTitle(loadedList.title);
     }
+  };
+
+  const handleUpdateList = async (updatedList: List) => {
+    await updateList(updatedList);
+    setList(updatedList);
   };
 
   const toggleItem = async (itemId: string) => {
@@ -46,8 +57,7 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
       updatedAt: new Date().toISOString(),
     };
 
-    await updateList(updatedList);
-    setList(updatedList);
+    await handleUpdateList(updatedList);
   };
 
   const handleDeleteItem = async (itemId: string) => {
@@ -60,8 +70,59 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
       updatedAt: new Date().toISOString(),
     };
 
-    await updateList(updatedList);
-    setList(updatedList);
+    await handleUpdateList(updatedList);
+  };
+
+  const handleEditTitle = async () => {
+    if (!list || editingTitle.trim() === '') return;
+
+    const updatedList = {
+      ...list,
+      title: editingTitle.trim(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await handleUpdateList(updatedList);
+    setIsEditingTitle(false);
+  };
+
+  const handleEditItem = async (itemId: string) => {
+    if (!list || editingItemText.trim() === '') return;
+
+    const updatedItems = list.items.map(item =>
+      item.id === itemId ? { ...item, text: editingItemText.trim() } : item
+    );
+
+    const updatedList = {
+      ...list,
+      items: updatedItems,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await handleUpdateList(updatedList);
+    setEditingItemId(null);
+    setEditingItemText('');
+  };
+
+  const handleAddItem = async () => {
+    if (!list) return;
+
+    const newItem: ListItem = {
+      id: await generateUUID(),
+      text: '',
+      completed: false,
+      createdAt: new Date().toISOString(),
+    };
+
+    const updatedList = {
+      ...list,
+      items: [...list.items, newItem],
+      updatedAt: new Date().toISOString(),
+    };
+
+    await handleUpdateList(updatedList);
+    setEditingItemId(newItem.id);
+    setEditingItemText('');
   };
 
   const handlePrintQR = async () => {
@@ -151,7 +212,20 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
               style={styles.headerButton}
             />
           )}
-          <Text style={styles.title}>{list.title}</Text>
+          {isEditingTitle ? (
+            <TextInput
+              style={styles.titleInput}
+              value={editingTitle}
+              onChangeText={setEditingTitle}
+              onBlur={handleEditTitle}
+              onSubmitEditing={handleEditTitle}
+              autoFocus
+            />
+          ) : (
+            <Text style={styles.title} onPress={() => setIsEditingTitle(true)}>
+              {list.title}
+            </Text>
+          )}
         </View>
         <IconButton
           icon="qrcode"
@@ -168,14 +242,29 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
               status={item.completed ? 'checked' : 'unchecked'}
               onPress={() => toggleItem(item.id)}
             />
-            <Text
-              style={[
-                styles.itemText,
-                item.completed && styles.completedItem,
-              ]}
-            >
-              {item.text}
-            </Text>
+            {editingItemId === item.id ? (
+              <TextInput
+                style={styles.itemInput}
+                value={editingItemText}
+                onChangeText={setEditingItemText}
+                onBlur={() => handleEditItem(item.id)}
+                onSubmitEditing={() => handleEditItem(item.id)}
+                autoFocus
+              />
+            ) : (
+              <Text
+                style={[
+                  styles.itemText,
+                  item.completed && styles.completedItem,
+                ]}
+                onPress={() => {
+                  setEditingItemId(item.id);
+                  setEditingItemText(item.text);
+                }}
+              >
+                {item.text}
+              </Text>
+            )}
             <IconButton
               icon="delete"
               size={20}
@@ -184,6 +273,12 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
           </View>
         ))}
       </ScrollView>
+
+      <FAB
+        icon="plus"
+        style={[styles.fab, { backgroundColor: theme.colors.primary }]}
+        onPress={handleAddItem}
+      />
 
       <Portal>
         <Modal
@@ -234,11 +329,22 @@ const styles = StyleSheet.create({
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     marginLeft: 8,
+    flex: 1,
+  },
+  titleInput: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginLeft: 8,
+    flex: 1,
+    padding: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#6200ee',
   },
   headerButton: {
     margin: 0,
@@ -256,6 +362,13 @@ const styles = StyleSheet.create({
   itemText: {
     flex: 1,
     marginLeft: 8,
+  },
+  itemInput: {
+    flex: 1,
+    marginLeft: 8,
+    padding: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#6200ee',
   },
   completedItem: {
     textDecorationLine: 'line-through',
@@ -290,5 +403,11 @@ const styles = StyleSheet.create({
   closeButton: {
     flex: 1,
     marginLeft: 8,
+  },
+  fab: {
+    position: 'absolute',
+    margin: 16,
+    right: 0,
+    bottom: 0,
   },
 }); 
