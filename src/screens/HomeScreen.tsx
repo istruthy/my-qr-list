@@ -64,7 +64,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   };
 
   const renderSearchResult = ({ item }: { item: SearchResult }) => (
-    <Card style={styles.card} onPress={() => navigation.navigate('ViewList', { listId: item.listId })}>
+    <Card
+      style={styles.card}
+      onPress={() => navigation.navigate('ViewList', { listId: item.listId })}
+    >
       <Card.Content>
         <Text variant="titleMedium">{item.listTitle}</Text>
         <Text variant="bodyMedium">{item.item.text}</Text>
@@ -91,16 +94,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>My Lists</Text>
-        <IconButton
-          icon="qrcode-scan"
-          size={24}
-          onPress={() => navigation.navigate('ScanQR')}
-          style={styles.headerButton}
-        />
-      </View>
-
       <Searchbar
         placeholder="Search items..."
         onChangeText={handleSearch}
@@ -111,12 +104,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
       <FlatList<ListOrSearchResult>
         data={searchQuery ? searchResults : lists}
-        renderItem={({ item }) => 
+        renderItem={({ item }) =>
           'items' in item ? renderList({ item }) : renderSearchResult({ item })
         }
-        keyExtractor={item => 
-          'items' in item ? item.id : `${item.listId}-${item.item.id}`
-        }
+        keyExtractor={item => ('items' in item ? item.id : `${item.listId}-${item.item.id}`)}
         contentContainerStyle={styles.list}
       />
 
@@ -170,4 +161,4 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
-}); 
+});

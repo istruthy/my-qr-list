@@ -359,8 +359,14 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
 
       <FAB
         icon="plus"
-        style={[styles.fab, { backgroundColor: theme.colors.primary }]}
+        style={[styles.fab2, { backgroundColor: theme.colors.secondary }]}
         onPress={handleAddItem}
+      />
+
+      <FAB
+        icon="qrcode"
+        style={[styles.fab, { backgroundColor: theme.colors.primary }]}
+        onPress={() => setShowQR(true)}
       />
 
       <Portal>
@@ -539,12 +545,20 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 8,
   },
-  fab: {
+  fab2: {
     position: 'absolute',
     margin: 16,
     right: 0,
     bottom: 0,
   },
+
+  fab: {
+    position: 'absolute',
+    margin: 16,
+    right: 0,
+    bottom: 70,
+  },
+
   imagePickerButtons: {
     width: '100%',
     gap: 8,
