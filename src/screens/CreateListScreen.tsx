@@ -6,6 +6,7 @@ import { RootStackParamList } from '../types';
 import { saveList } from '../utils/storage';
 import { List, ListItem } from '../types';
 import { generateUUID } from '../utils/uuid';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type CreateListScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'CreateList'>;
@@ -23,6 +24,7 @@ export const CreateListScreen: React.FC<CreateListScreenProps> = ({ navigation }
         id: await generateUUID(),
         text: newItem.trim(),
         completed: false,
+        createdAt: new Date().toISOString(),
       };
       setItems([...items, newListItem]);
       setNewItem('');
@@ -58,7 +60,7 @@ export const CreateListScreen: React.FC<CreateListScreenProps> = ({ navigation }
         onChangeText={setTitle}
         style={styles.titleInput}
       />
-      
+
       <View style={styles.addItemContainer}>
         <TextInput
           label="New Item"
@@ -67,35 +69,29 @@ export const CreateListScreen: React.FC<CreateListScreenProps> = ({ navigation }
           style={styles.itemInput}
           onSubmitEditing={handleAddItem}
         />
-        <IconButton
-          icon="plus"
-          size={24}
-          onPress={handleAddItem}
-          style={styles.addButton}
-        />
+        <IconButton icon="plus" size={24} onPress={handleAddItem} style={styles.addButton} />
       </View>
 
       <ScrollView style={styles.itemsList}>
         {items.map(item => (
           <View key={item.id} style={styles.itemContainer}>
             <Text style={styles.itemText}>{item.text}</Text>
-            <IconButton
-              icon="delete"
-              size={20}
-              onPress={() => handleRemoveItem(item.id)}
-            />
+            <IconButton icon="delete" size={20} onPress={() => handleRemoveItem(item.id)} />
           </View>
         ))}
       </ScrollView>
 
-      <Button
-        mode="contained"
-        onPress={handleSave}
-        style={styles.saveButton}
-        disabled={!title.trim() || items.length === 0}
-      >
-        Save List
-      </Button>
+      <SafeAreaView edges={['bottom']} style={styles.footer}>
+        <Button
+          mode="contained"
+          onPress={handleSave}
+          style={styles.saveButton}
+          labelStyle={styles.buttonLabel}
+          disabled={!title.trim() || items.length === 0}
+        >
+          Save List
+        </Button>
+      </SafeAreaView>
     </View>
   );
 };
@@ -104,6 +100,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
+    paddingBottom: 0,
   },
   titleInput: {
     marginBottom: 16,
@@ -122,6 +119,7 @@ const styles = StyleSheet.create({
   },
   itemsList: {
     flex: 1,
+    paddingBottom: 80,
   },
   itemContainer: {
     flexDirection: 'row',
@@ -133,7 +131,16 @@ const styles = StyleSheet.create({
   itemText: {
     flex: 1,
   },
-  saveButton: {
-    marginTop: 16,
+  footer: {
+    paddingTop: 8,
   },
-}); 
+  saveButton: {
+    marginHorizontal: 16,
+    borderRadius: 40,
+    padding: 16,
+  },
+  buttonLabel: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+});

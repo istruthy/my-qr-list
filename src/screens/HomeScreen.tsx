@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, FlatList } from 'react-native';
-import { Text, FAB, Card, IconButton, useTheme, Searchbar } from 'react-native-paper';
+import { Text, Button, Card, IconButton, useTheme, Searchbar } from 'react-native-paper';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { RootStackParamList } from '../types';
 import { getAllLists, deleteList } from '../utils/storage';
 import { List, ListItem } from '../types';
@@ -111,11 +112,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         contentContainerStyle={styles.list}
       />
 
-      <FAB
-        icon="plus"
-        style={[styles.fab, { backgroundColor: theme.colors.primary }]}
-        onPress={() => navigation.navigate('CreateList')}
-      />
+      <SafeAreaView
+        edges={['bottom']}
+        style={[styles.footer, { backgroundColor: theme.colors.background }]}
+      >
+        <Button
+          mode="contained"
+          onPress={() => navigation.navigate('CreateList')}
+          style={styles.createButton}
+          labelStyle={styles.buttonLabel}
+        >
+          Create New List
+        </Button>
+      </SafeAreaView>
     </View>
   );
 };
@@ -155,10 +164,16 @@ const styles = StyleSheet.create({
   deleteButton: {
     margin: 0,
   },
-  fab: {
-    position: 'absolute',
-    margin: 16,
-    right: 0,
-    bottom: 0,
+  footer: {
+    paddingTop: 8,
+  },
+  createButton: {
+    marginHorizontal: 16,
+    borderRadius: 40,
+    padding: 16,
+  },
+  buttonLabel: {
+    fontSize: 18,
+    fontWeight: '600',
   },
 });
