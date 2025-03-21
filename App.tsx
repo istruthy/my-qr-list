@@ -7,6 +7,7 @@ import { CreateListScreen } from './src/screens/CreateListScreen';
 import { ViewListScreen } from './src/screens/ViewListScreen';
 import { ScanQRScreen } from './src/screens/ScanQRScreen';
 import { RootStackParamList } from './src/types';
+import * as Linking from 'expo-linking';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -19,10 +20,29 @@ const theme = {
   },
 };
 
+const prefix = Linking.createURL('/');
+
 export default function App() {
   return (
     <PaperProvider theme={theme}>
-      <NavigationContainer>
+      <NavigationContainer
+        linking={{
+          prefixes: [prefix, 'myqrlist://'],
+          config: {
+            screens: {
+              Home: 'home',
+              CreateList: 'create',
+              ViewList: {
+                path: 'list/:listId',
+                parse: {
+                  listId: (listId: string) => listId,
+                },
+              },
+              ScanQR: 'scan',
+            },
+          },
+        }}
+      >
         <Stack.Navigator
           initialRouteName="Home"
           screenOptions={{

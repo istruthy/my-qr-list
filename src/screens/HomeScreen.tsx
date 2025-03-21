@@ -74,6 +74,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         style={[styles.fab, { backgroundColor: theme.colors.primary }]}
         onPress={() => navigation.navigate('CreateList')}
       />
+      <FAB
+        icon="qrcode-scan"
+        style={[styles.fab, styles.scanFab, { backgroundColor: theme.colors.secondary }]}
+        onPress={() => navigation.navigate('ScanQR')}
+      />
     </View>
   );
 };
@@ -114,6 +119,9 @@ const styles = StyleSheet.create({
     margin: 16,
     right: 0,
     bottom: 0,
+  },
+  scanFab: {
+    bottom: 80,
   },
   emptyContainer: {
     flex: 1,

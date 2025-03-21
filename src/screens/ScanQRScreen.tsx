@@ -1,45 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Dimensions } from 'react-native';
-import { Text, Button } from 'react-native-paper';
-import { Camera } from 'expo-camera';
+import { StyleSheet, View, Text } from 'react-native';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import { Button, useTheme } from 'react-native-paper';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
-import { getListById } from '../utils/storage';
 
 type ScanQRScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'ScanQR'>;
 };
 
 export const ScanQRScreen: React.FC<ScanQRScreenProps> = ({ navigation }) => {
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
+  const theme = useTheme();
 
-  useEffect(() => {
-    const getCameraPermissions = async () => {
-      const { status } = await Camera.requestCameraPermissionsAsync();
-      setHasPermission(status === 'granted');
-    };
-
-    getCameraPermissions();
-  }, []);
-
-  const handleBarCodeScanned = async ({ data }: { data: string }) => {
-    if (scanned) return;
-    
+  const handleBarCodeScanned = ({ data }: { data: string }) => {
     setScanned(true);
     
-    // Check if the QR code is from our app
+    // Check if the scanned data is a valid myqrlist URL
     if (data.startsWith('myqrlist://list/')) {
       const listId = data.replace('myqrlist://list/', '');
-      const list = await getListById(listId);
-      
-      if (list) {
-        navigation.navigate('ViewList', { listId });
-      }
+      navigation.replace('ViewList', { listId });
     }
   };
 
-  if (hasPermission === null) {
+  if (!permission) {
     return (
       <View style={styles.container}>
         <Text>Requesting camera permission...</Text>
@@ -47,43 +32,47 @@ export const ScanQRScreen: React.FC<ScanQRScreenProps> = ({ navigation }) => {
     );
   }
 
-  if (hasPermission === false) {
+  if (!permission.granted) {
     return (
       <View style={styles.container}>
         <Text>No access to camera</Text>
         <Button
           mode="contained"
-          onPress={() => navigation.goBack()}
+          onPress={requestPermission}
           style={styles.button}
         >
-          Go Back
+          Grant Permission
         </Button>
       </View>
     );
   }
 
-  // @ts-ignore - Camera component is valid but TypeScript doesn't recognize it
   return (
     <View style={styles.container}>
-      <Camera
+      <CameraView
         style={styles.camera}
-        onBarCodeScanned={scanned ? undefined : handleBarCodeScanned}
-        barCodeScannerSettings={{
-          barCodeTypes: ['qr'],
+        facing="back"
+        onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+        barcodeScannerSettings={{
+          barcodeTypes: ['qr'],
         }}
-      />
-      {scanned && (
+      >
         <View style={styles.overlay}>
-          <Text style={styles.overlayText}>QR Code scanned!</Text>
-          <Button
-            mode="contained"
-            onPress={() => setScanned(false)}
-            style={styles.button}
-          >
-            Scan Again
-          </Button>
+          <View style={styles.scanArea} />
+          {scanned && (
+            <View style={styles.scannedOverlay}>
+              <Text style={styles.scannedText}>QR Code Scanned!</Text>
+              <Button
+                mode="contained"
+                onPress={() => setScanned(false)}
+                style={styles.button}
+              >
+                Scan Again
+              </Button>
+            </View>
+          )}
         </View>
-      )}
+      </CameraView>
     </View>
   );
 };
@@ -91,27 +80,41 @@ export const ScanQRScreen: React.FC<ScanQRScreenProps> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    flexDirection: 'column',
+    backgroundColor: '#000',
   },
   camera: {
     flex: 1,
-    width: Dimensions.get('window').width,
   },
   overlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    padding: 20,
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  overlayText: {
-    color: 'white',
-    fontSize: 16,
-    marginBottom: 16,
+  scanArea: {
+    width: 250,
+    height: 250,
+    borderWidth: 2,
+    borderColor: '#fff',
+    backgroundColor: 'transparent',
+    borderRadius: 20,
+  },
+  scannedOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scannedText: {
+    color: '#fff',
+    fontSize: 18,
+    marginBottom: 20,
   },
   button: {
-    marginTop: 8,
+    marginTop: 20,
   },
 }); 
