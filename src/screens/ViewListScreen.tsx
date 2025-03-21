@@ -315,23 +315,8 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
             />
             <View style={styles.itemContent}>
               {item.imageUrl ? (
-                <View style={styles.imageContainer}>
-                  <Image source={{ uri: item.imageUrl }} style={styles.thumbnail} />
-                  <IconButton
-                    icon="close-circle"
-                    size={16}
-                    onPress={() => handleRemoveImage(item.id)}
-                    style={styles.removeImageButton}
-                  />
-                </View>
-              ) : (
-                <IconButton
-                  icon="image-plus"
-                  size={24}
-                  onPress={() => pickImage(item.id)}
-                  style={styles.addImageButton}
-                />
-              )}
+                <Image source={{ uri: item.imageUrl }} style={styles.thumbnail} />
+              ) : null}
               {editingItemId === item.id ? (
                 <TextInput
                   style={styles.itemInput}
@@ -356,11 +341,29 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
                 </Text>
               )}
             </View>
-            <IconButton
-              icon="delete"
-              size={20}
-              onPress={() => handleDeleteItem(item.id)}
-            />
+            <View style={styles.itemActions}>
+              {item.imageUrl ? (
+                <IconButton
+                  icon="image-edit"
+                  size={20}
+                  onPress={() => pickImage(item.id)}
+                  style={styles.actionButton}
+                />
+              ) : (
+                <IconButton
+                  icon="image-plus"
+                  size={20}
+                  onPress={() => pickImage(item.id)}
+                  style={styles.actionButton}
+                />
+              )}
+              <IconButton
+                icon="delete"
+                size={20}
+                onPress={() => handleDeleteItem(item.id)}
+                style={styles.actionButton}
+              />
+            </View>
           </View>
         ))}
       </ScrollView>
@@ -489,26 +492,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginLeft: 8,
   },
-  imageContainer: {
-    position: 'relative',
-    marginRight: 8,
-  },
   thumbnail: {
-    width: 40,
-    height: 40,
-    borderRadius: 4,
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    marginRight: 12,
   },
-  addImageButton: {
-    margin: 0,
-    marginRight: 8,
+  itemActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  removeImageButton: {
-    position: 'absolute',
-    top: -8,
-    right: -8,
+  actionButton: {
     margin: 0,
-    backgroundColor: 'white',
-    borderRadius: 12,
   },
   itemText: {
     flex: 1,
