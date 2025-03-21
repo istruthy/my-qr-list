@@ -1,18 +1,28 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
-import { Text, FAB, Card, IconButton, useTheme } from 'react-native-paper';
+import { View, StyleSheet, FlatList } from 'react-native';
+import { Text, FAB, Card, IconButton, useTheme, Searchbar } from 'react-native-paper';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../types';
 import { getAllLists, deleteList } from '../utils/storage';
-import { List } from '../types';
+import { List, ListItem } from '../types';
 
 type HomeScreenProps = {
-  navigation: NativeStackNavigationProp<RootStackParamList, 'Home'>;
+  navigation: NativeStackNavigationProp<RootStackParamList>;
 };
+
+type SearchResult = {
+  listId: string;
+  listTitle: string;
+  item: ListItem;
+};
+
+type ListOrSearchResult = List | SearchResult;
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const [lists, setLists] = useState<List[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const theme = useTheme();
 
   const loadLists = async () => {
@@ -26,60 +36,94 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     }, [])
   );
 
-  const handleDeleteList = async (listId: string) => {
-    await deleteList(listId);
-    setLists(lists.filter(list => list.id !== listId));
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    const results: SearchResult[] = [];
+    lists.forEach(list => {
+      list.items.forEach(item => {
+        if (item.text.toLowerCase().includes(query.toLowerCase())) {
+          results.push({
+            listId: list.id,
+            listTitle: list.title,
+            item,
+          });
+        }
+      });
+    });
+    setSearchResults(results);
   };
 
-  const renderItem = ({ item }: { item: List }) => (
-    <TouchableOpacity onPress={() => navigation.navigate('ViewList', { listId: item.id })}>
-      <Card style={styles.card}>
-        <Card.Content style={styles.cardContent}>
-          <View style={styles.cardTextContainer}>
-            <Text style={styles.cardTitle}>{item.title}</Text>
-            <Text style={styles.cardSubtitle}>
-              {item.items.length} items
-            </Text>
-          </View>
-          <View style={styles.cardActions}>
-            <IconButton
-              icon="qrcode"
-              size={20}
-              onPress={() => navigation.navigate('ViewList', { listId: item.id })}
-            />
-            <IconButton
-              icon="delete"
-              size={20}
-              onPress={() => handleDeleteList(item.id)}
-            />
-          </View>
-        </Card.Content>
-      </Card>
-    </TouchableOpacity>
+  const handleDeleteList = async (listId: string) => {
+    await deleteList(listId);
+    loadLists();
+  };
+
+  const renderSearchResult = ({ item }: { item: SearchResult }) => (
+    <Card style={styles.card} onPress={() => navigation.navigate('ViewList', { listId: item.listId })}>
+      <Card.Content>
+        <Text variant="titleMedium">{item.listTitle}</Text>
+        <Text variant="bodyMedium">{item.item.text}</Text>
+      </Card.Content>
+    </Card>
+  );
+
+  const renderList = ({ item }: { item: List }) => (
+    <Card style={styles.card} onPress={() => navigation.navigate('ViewList', { listId: item.id })}>
+      <Card.Content>
+        <View style={styles.cardHeader}>
+          <Text variant="titleMedium">{item.title}</Text>
+          <IconButton
+            icon="delete"
+            size={20}
+            onPress={() => handleDeleteList(item.id)}
+            style={styles.deleteButton}
+          />
+        </View>
+        <Text variant="bodyMedium">{item.items.length} items</Text>
+      </Card.Content>
+    </Card>
   );
 
   return (
     <View style={styles.container}>
-      <FlatList
-        data={lists}
-        renderItem={renderItem}
-        keyExtractor={item => item.id}
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No lists yet</Text>
-          </View>
-        }
+      <View style={styles.header}>
+        <Text style={styles.title}>My Lists</Text>
+        <IconButton
+          icon="qrcode-scan"
+          size={24}
+          onPress={() => navigation.navigate('ScanQR')}
+          style={styles.headerButton}
+        />
+      </View>
+
+      <Searchbar
+        placeholder="Search items..."
+        onChangeText={handleSearch}
+        value={searchQuery}
+        style={styles.searchBar}
+        iconColor={theme.colors.primary}
       />
+
+      <FlatList<ListOrSearchResult>
+        data={searchQuery ? searchResults : lists}
+        renderItem={({ item }) => 
+          'items' in item ? renderList({ item }) : renderSearchResult({ item })
+        }
+        keyExtractor={item => 
+          'items' in item ? item.id : `${item.listId}-${item.item.id}`
+        }
+        contentContainerStyle={styles.list}
+      />
+
       <FAB
         icon="plus"
         style={[styles.fab, { backgroundColor: theme.colors.primary }]}
         onPress={() => navigation.navigate('CreateList')}
-      />
-      <FAB
-        icon="qrcode-scan"
-        style={[styles.fab, styles.scanFab, { backgroundColor: theme.colors.secondary }]}
-        onPress={() => navigation.navigate('ScanQR')}
       />
     </View>
   );
@@ -88,51 +132,42 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  list: {
     padding: 16,
   },
-  card: {
-    marginBottom: 16,
-    elevation: 2,
-  },
-  cardContent: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: 16,
   },
-  cardTextContainer: {
-    flex: 1,
-  },
-  cardTitle: {
-    fontSize: 18,
+  title: {
+    fontSize: 24,
     fontWeight: 'bold',
   },
-  cardSubtitle: {
-    fontSize: 14,
-    color: '#666',
+  headerButton: {
+    margin: 0,
   },
-  cardActions: {
+  searchBar: {
+    marginBottom: 16,
+  },
+  list: {
+    paddingBottom: 80,
+  },
+  card: {
+    marginBottom: 8,
+  },
+  cardHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  deleteButton: {
+    margin: 0,
   },
   fab: {
     position: 'absolute',
     margin: 16,
     right: 0,
     bottom: 0,
-  },
-  scanFab: {
-    bottom: 80,
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 32,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#666',
   },
 }); 
