@@ -1,6 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, ScrollView, TextInput, Image } from 'react-native';
-import { Text, IconButton, Checkbox, Button, Portal, Modal, useTheme, FAB } from 'react-native-paper';
+import {
+  Text,
+  IconButton,
+  Checkbox,
+  Button,
+  Portal,
+  Modal,
+  useTheme,
+  FAB,
+} from 'react-native-paper';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp, useNavigationState } from '@react-navigation/native';
 import QRCode from 'react-native-qrcode-svg';
@@ -38,7 +47,7 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
   useEffect(() => {
     if (list) {
       navigation.setOptions({
-        headerTitle: list.title
+        headerTitle: list.title,
       });
     }
   }, [list, navigation]);
@@ -211,7 +220,7 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
     if (!selectedItemId) return;
 
     try {
-      const result = await (source === 'camera' 
+      const result = await (source === 'camera'
         ? ImagePicker.launchCameraAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true,
@@ -284,15 +293,16 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
             <IconButton
               icon="home"
               size={24}
-              onPress={() => navigation.reset({
-                index: 0,
-                routes: [{ name: 'Home' }],
-              })}
+              onPress={() =>
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'Home' }],
+                })
+              }
               style={styles.headerButton}
             />
           )}
         </View>
-
       </View>
 
       <ScrollView style={styles.itemsList}>
@@ -317,10 +327,7 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
                 />
               ) : (
                 <Text
-                  style={[
-                    styles.itemText,
-                    item.completed && styles.completedItem,
-                  ]}
+                  style={[styles.itemText, item.completed && styles.completedItem]}
                   onPress={() => {
                     setEditingItemId(item.id);
                     setEditingItemText(item.text);
@@ -331,21 +338,12 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
               )}
             </View>
             <View style={styles.itemActions}>
-              {item.imageUrl ? (
-                <IconButton
-                  icon="image-edit"
-                  size={20}
-                  onPress={() => pickImage(item.id)}
-                  style={styles.actionButton}
-                />
-              ) : (
-                <IconButton
-                  icon="image-plus"
-                  size={20}
-                  onPress={() => pickImage(item.id)}
-                  style={styles.actionButton}
-                />
-              )}
+              <IconButton
+                icon={item.imageUrl ? 'image-edit' : 'image-plus'}
+                size={20}
+                onPress={() => pickImage(item.id)}
+                style={styles.actionButton}
+              />
               <IconButton
                 icon="delete"
                 size={20}
@@ -377,24 +375,13 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
         >
           <Text style={styles.modalTitle}>Scan to View List</Text>
           <View style={styles.qrContainer}>
-            <QRCode
-              value={Linking.createURL(`/list/${list.id}`)}
-              size={200}
-            />
+            <QRCode value={Linking.createURL(`/list/${list.id}`)} size={200} />
           </View>
           <View style={styles.modalButtons}>
-            <Button
-              mode="contained"
-              onPress={handlePrintQR}
-              style={styles.printButton}
-            >
+            <Button mode="contained" onPress={handlePrintQR} style={styles.printButton}>
               Print QR Code
             </Button>
-            <Button
-              mode="outlined"
-              onPress={() => setShowQR(false)}
-              style={styles.closeButton}
-            >
+            <Button mode="outlined" onPress={() => setShowQR(false)} style={styles.closeButton}>
               Close
             </Button>
           </View>
@@ -405,24 +392,45 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
           onDismiss={() => setShowImagePickerModal(false)}
           contentContainerStyle={styles.modalContent}
         >
-          <Text style={styles.modalTitle}>Add Image</Text>
+          <Text style={styles.modalTitle}>
+            {selectedItemId && list?.items.find(item => item.id === selectedItemId)?.imageUrl
+              ? 'Edit Image'
+              : 'Add Image'}
+          </Text>
           <View style={styles.imagePickerButtons}>
-            <Button
-              mode="contained"
-              onPress={() => handleImageSource('camera')}
-              style={styles.imagePickerButton}
-              icon="camera"
-            >
-              Take Photo
-            </Button>
-            <Button
-              mode="contained"
-              onPress={() => handleImageSource('library')}
-              style={styles.imagePickerButton}
-              icon="image"
-            >
-              Choose from Library
-            </Button>
+            {selectedItemId && list?.items.find(item => item.id === selectedItemId)?.imageUrl ? (
+              <Button
+                mode="contained"
+                onPress={() => {
+                  handleRemoveImage(selectedItemId);
+                  setShowImagePickerModal(false);
+                }}
+                style={styles.imagePickerButton}
+                icon="delete"
+                buttonColor={theme.colors.error}
+              >
+                Remove Image
+              </Button>
+            ) : (
+              <>
+                <Button
+                  mode="contained"
+                  onPress={() => handleImageSource('camera')}
+                  style={styles.imagePickerButton}
+                  icon="camera"
+                >
+                  Take Photo
+                </Button>
+                <Button
+                  mode="contained"
+                  onPress={() => handleImageSource('library')}
+                  style={styles.imagePickerButton}
+                  icon="image"
+                >
+                  Choose from Library
+                </Button>
+              </>
+            )}
             <Button
               mode="outlined"
               onPress={() => setShowImagePickerModal(false)}
@@ -487,10 +495,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginLeft: 8,
   },
+  imageContainer: {
+    position: 'relative',
+    marginRight: 12,
+  },
   thumbnail: {
     width: 80,
     height: 80,
-    borderRadius: 8,
+    borderRadius: 40,
     marginRight: 12,
   },
   itemActions: {
@@ -566,4 +578,4 @@ const styles = StyleSheet.create({
   imagePickerButton: {
     marginVertical: 4,
   },
-}); 
+});
