@@ -21,6 +21,7 @@ import { getListById, updateList } from '../utils/storage';
 import { List, ListItem } from '../types';
 import { generateUUID } from '../utils/uuid';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActionButton } from '../components/ActionButton';
 
 type ViewListScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'ViewList'>;
@@ -366,14 +367,7 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
       </ScrollView>
 
       <SafeAreaView edges={['bottom']} style={styles.footer}>
-        <Button
-          mode="contained"
-          onPress={handleAddItem}
-          style={styles.addItemButton}
-          labelStyle={styles.buttonLabel}
-        >
-          Add Item
-        </Button>
+        <ActionButton label="Add Item" onPress={handleAddItem} />
       </SafeAreaView>
 
       <Portal>
@@ -382,17 +376,24 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
           onDismiss={() => setShowQR(false)}
           contentContainerStyle={styles.modalContent}
         >
-          <Text style={styles.modalTitle}>Scan to View List</Text>
+          {/* <Text style={styles.modalTitle}>Scan to View List</Text> */}
           <View style={styles.qrContainer}>
             <QRCode value={Linking.createURL(`/list/${list.id}`)} size={200} />
           </View>
           <View style={styles.modalButtons}>
-            <Button mode="contained" onPress={handlePrintQR} style={styles.printButton}>
-              Print QR Code
-            </Button>
-            <Button mode="outlined" onPress={() => setShowQR(false)} style={styles.closeButton}>
-              Close
-            </Button>
+            <ActionButton
+              label="Print"
+              onPress={handlePrintQR}
+              style={styles.printButton}
+              size="xs"
+            />
+            <ActionButton
+              label="Close"
+              onPress={() => setShowQR(false)}
+              style={styles.closeButton}
+              variant="outline"
+              size="xs"
+            />
           </View>
         </Modal>
 
@@ -408,45 +409,38 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
           </Text>
           <View style={styles.imagePickerButtons}>
             {selectedItemId && list?.items.find(item => item.id === selectedItemId)?.imageUrl ? (
-              <Button
-                mode="contained"
+              <ActionButton
+                label="Remove Image"
                 onPress={() => {
                   handleRemoveImage(selectedItemId);
                   setShowImagePickerModal(false);
                 }}
                 style={styles.imagePickerButton}
+                variant="error"
                 icon="delete"
-                buttonColor={theme.colors.error}
-              >
-                Remove Image
-              </Button>
+              />
             ) : (
               <>
-                <Button
-                  mode="contained"
+                <ActionButton
+                  label="Take Photo"
                   onPress={() => handleImageSource('camera')}
                   style={styles.imagePickerButton}
                   icon="camera"
-                >
-                  Take Photo
-                </Button>
-                <Button
-                  mode="contained"
+                />
+                <ActionButton
+                  label="Choose from Library"
                   onPress={() => handleImageSource('library')}
                   style={styles.imagePickerButton}
                   icon="image"
-                >
-                  Choose from Library
-                </Button>
+                />
               </>
             )}
-            <Button
-              mode="outlined"
+            <ActionButton
+              label="Cancel"
               onPress={() => setShowImagePickerModal(false)}
               style={styles.imagePickerButton}
-            >
-              Cancel
-            </Button>
+              variant="outline"
+            />
           </View>
         </Modal>
       </Portal>
@@ -569,15 +563,6 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingTop: 8,
-  },
-  addItemButton: {
-    marginHorizontal: 16,
-    borderRadius: 40,
-    padding: 16,
-  },
-  buttonLabel: {
-    fontSize: 18,
-    fontWeight: '600',
   },
   imagePickerButtons: {
     width: '100%',

@@ -7,6 +7,7 @@ import { saveList } from '../utils/storage';
 import { List, ListItem } from '../types';
 import { generateUUID } from '../utils/uuid';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActionButton } from '../components/ActionButton';
 
 type CreateListScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'CreateList'>;
@@ -82,15 +83,11 @@ export const CreateListScreen: React.FC<CreateListScreenProps> = ({ navigation }
       </ScrollView>
 
       <SafeAreaView edges={['bottom']} style={styles.footer}>
-        <Button
-          mode="contained"
+        <ActionButton
+          label="Save List"
           onPress={handleSave}
-          style={styles.saveButton}
-          labelStyle={styles.buttonLabel}
           disabled={!title.trim() || items.length === 0}
-        >
-          Save List
-        </Button>
+        />
       </SafeAreaView>
     </View>
   );
@@ -133,14 +130,5 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingTop: 8,
-  },
-  saveButton: {
-    marginHorizontal: 16,
-    borderRadius: 40,
-    padding: 16,
-  },
-  buttonLabel: {
-    fontSize: 18,
-    fontWeight: '600',
   },
 });

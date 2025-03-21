@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { RootStackParamList } from '../types';
 import { getAllLists, deleteList } from '../utils/storage';
 import { List, ListItem } from '../types';
+import { ActionButton } from '../components/ActionButton';
 
 type HomeScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList>;
@@ -116,14 +117,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         edges={['bottom']}
         style={[styles.footer, { backgroundColor: theme.colors.background }]}
       >
-        <Button
-          mode="contained"
-          onPress={() => navigation.navigate('CreateList')}
-          style={styles.createButton}
-          labelStyle={styles.buttonLabel}
-        >
-          Create New List
-        </Button>
+        <ActionButton label="Create New List" onPress={() => navigation.navigate('CreateList')} />
       </SafeAreaView>
     </View>
   );
@@ -166,14 +160,5 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingTop: 8,
-  },
-  createButton: {
-    marginHorizontal: 16,
-    borderRadius: 40,
-    padding: 16,
-  },
-  buttonLabel: {
-    fontSize: 18,
-    fontWeight: '600',
   },
 });
