@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text } from 'react-native';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
 import { Button, useTheme } from 'react-native-paper';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
@@ -8,17 +8,31 @@ import * as Linking from 'expo-linking';
 
 type ScanQRScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'ScanQR'>;
+  route: {
+    params?: {
+      mode?: 'view' | 'create';
+      onCodeScanned?: (code: string) => void;
+    };
+  };
 };
 
-export const ScanQRScreen: React.FC<ScanQRScreenProps> = ({ navigation }) => {
+export const ScanQRScreen: React.FC<ScanQRScreenProps> = ({ navigation, route }) => {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const theme = useTheme();
+  const mode = route.params?.mode || 'view';
 
-  const handleBarCodeScanned = ({ data }: { data: string }) => {
+  const handleBarCodeScanned = ({ data }: BarcodeScanningResult) => {
     setScanned(true);
-    
-    // Check if the scanned data is a valid URL
+
+    if (mode === 'create') {
+      // Call the callback with the scanned code and go back
+      route.params?.onCodeScanned?.(data);
+      navigation.goBack();
+      return;
+    }
+
+    // Check if the scanned data is a valid URL for viewing
     if (data.startsWith('myqrlist://list/') || data.startsWith('exp://')) {
       const listId = data.split('/').pop() || '';
       navigation.replace('ViewList', { listId });
@@ -28,7 +42,7 @@ export const ScanQRScreen: React.FC<ScanQRScreenProps> = ({ navigation }) => {
   if (!permission) {
     return (
       <View style={styles.container}>
-        <Text>Requesting camera permission...</Text>
+        <Text style={styles.text}>Requesting camera permission...</Text>
       </View>
     );
   }
@@ -36,12 +50,8 @@ export const ScanQRScreen: React.FC<ScanQRScreenProps> = ({ navigation }) => {
   if (!permission.granted) {
     return (
       <View style={styles.container}>
-        <Text>No access to camera</Text>
-        <Button
-          mode="contained"
-          onPress={requestPermission}
-          style={styles.button}
-        >
+        <Text style={styles.text}>No access to camera</Text>
+        <Button mode="contained" onPress={requestPermission} style={styles.button}>
           Grant Permission
         </Button>
       </View>
@@ -55,19 +65,24 @@ export const ScanQRScreen: React.FC<ScanQRScreenProps> = ({ navigation }) => {
         facing="back"
         onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
         barcodeScannerSettings={{
-          barcodeTypes: ['qr'],
+          barcodeTypes:
+            mode === 'create' ? ['qr', 'ean8', 'ean13', 'code39', 'code128', 'upc_a'] : ['qr'],
         }}
       >
         <View style={styles.overlay}>
+          <Text style={styles.headerText}>
+            {mode === 'create' ? 'Scan Barcode or QR Code' : 'Scan QR Code'}
+          </Text>
           <View style={styles.scanArea} />
+          <Text style={styles.instructionText}>
+            {mode === 'create'
+              ? 'Position the barcode or QR code within the frame'
+              : 'Position the QR code within the frame'}
+          </Text>
           {scanned && (
             <View style={styles.scannedOverlay}>
-              <Text style={styles.scannedText}>QR Code Scanned!</Text>
-              <Button
-                mode="contained"
-                onPress={() => setScanned(false)}
-                style={styles.button}
-              >
+              <Text style={styles.scannedText}>Code Scanned!</Text>
+              <Button mode="contained" onPress={() => setScanned(false)} style={styles.button}>
                 Scan Again
               </Button>
             </View>
@@ -115,7 +130,27 @@ const styles = StyleSheet.create({
     fontSize: 18,
     marginBottom: 20,
   },
+  text: {
+    color: '#fff',
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  headerText: {
+    color: '#fff',
+    fontSize: 18,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  instructionText: {
+    color: '#fff',
+    fontSize: 14,
+    marginTop: 20,
+    textAlign: 'center',
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    padding: 8,
+    borderRadius: 4,
+  },
   button: {
     marginTop: 20,
   },
-}); 
+});
