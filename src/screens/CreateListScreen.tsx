@@ -76,9 +76,6 @@ export const CreateListScreen: React.FC<CreateListScreenProps> = ({ navigation, 
     setShowBarcodeModal(false);
     navigation.navigate('ScanQR', {
       mode: 'create',
-      onCodeScanned: (scannedCode: string) => {
-        setBarcode(scannedCode);
-      },
     });
   };
 

@@ -16,7 +16,7 @@ export interface List {
 
 export type RootStackParamList = {
   Home: undefined;
-  CreateList: undefined;
+  CreateList: { scannedBarcode?: string } | undefined;
   ViewList: { listId: string };
-  ScanQR: undefined;
-}; 
+  ScanQR: { mode?: 'view' | 'create'; scannedBarcode?: string } | undefined;
+};

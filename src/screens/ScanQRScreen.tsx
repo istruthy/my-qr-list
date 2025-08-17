@@ -23,6 +23,14 @@ export const ScanQRScreen: React.FC<ScanQRScreenProps> = ({ navigation, route })
   const theme = useTheme();
   const mode = route.params?.mode || 'view';
 
+  // Cleanup effect to reset scanned state and help prevent camera unmount issues
+  useEffect(() => {
+    return () => {
+      setScanned(false);
+      // Add any additional cleanup if needed
+    };
+  }, []);
+
   const handleBarCodeScanned = async ({ data }: BarcodeScanningResult) => {
     setScanned(true);
 
@@ -41,17 +49,11 @@ export const ScanQRScreen: React.FC<ScanQRScreenProps> = ({ navigation, route })
     }
 
     // If we're in create mode and the barcode isn't associated with a list,
-    // pass it back to the create screen
+    // pass the scanned barcode back using navigation params
     if (mode === 'create') {
-      route.params?.onCodeScanned?.(data);
+      navigation.setParams({ scannedBarcode: data });
       navigation.goBack();
       return;
-    }
-
-    // Check if the scanned data is a valid URL for viewing
-    if (data.startsWith('myqrlist://list/') || data.startsWith('exp://')) {
-      const listId = data.split('/').pop() || '';
-      navigation.replace('ViewList', { listId });
     }
   };
 
