@@ -288,6 +288,10 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
     await handleUpdateList(updatedList);
   };
 
+  const handleScanQR = () => {
+    navigation.navigate('ScanQR', { mode: 'view' });
+  };
+
   if (!list) {
     return (
       <View style={styles.container}>
@@ -369,6 +373,12 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
       <SafeAreaView edges={['bottom']} style={styles.footer}>
         <ActionButton label="Add Item" onPress={handleAddItem} />
       </SafeAreaView>
+
+      <FAB
+        icon="qrcode-scan"
+        style={[styles.fab, { backgroundColor: theme.colors.primary }]}
+        onPress={handleScanQR}
+      />
 
       <Portal>
         <Modal
@@ -571,5 +581,11 @@ const styles = StyleSheet.create({
   },
   imagePickerButton: {
     marginVertical: 4,
+  },
+  fab: {
+    position: 'absolute',
+    margin: 16,
+    right: 0,
+    bottom: 80, // Position above the Add Item button
   },
 });

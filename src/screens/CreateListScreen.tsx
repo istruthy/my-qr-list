@@ -21,6 +21,7 @@ export const CreateListScreen: React.FC<CreateListScreenProps> = ({ navigation, 
   const [newItem, setNewItem] = useState('');
   const [barcode, setBarcode] = useState<string | null>(null);
   const [showBarcodeModal, setShowBarcodeModal] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const theme = useTheme();
 
   // Watch for scanned barcode updates
@@ -49,20 +50,26 @@ export const CreateListScreen: React.FC<CreateListScreenProps> = ({ navigation, 
 
   const handleSave = async () => {
     if (!title.trim()) {
+      setError('Please enter a title');
       return;
     }
 
-    const newList: List = {
-      id: await generateUUID(),
-      title: title.trim(),
-      items,
-      barcode,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+    try {
+      const newList: List = {
+        id: Date.now().toString(),
+        title: title.trim(),
+        items,
+        barcode: barcode || null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
 
-    await saveList(newList);
-    navigation.goBack();
+      await saveList(newList);
+      navigation.goBack();
+    } catch (error) {
+      console.error('Error saving list:', error);
+      setError('Failed to save list');
+    }
   };
 
   const handleScanCode = () => {

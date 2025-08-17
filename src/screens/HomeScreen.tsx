@@ -28,8 +28,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const theme = useTheme();
 
   const loadLists = async () => {
-    const loadedLists = await getAllLists();
-    setLists(loadedLists);
+    try {
+      const loadedLists = await getAllLists();
+      console.log('Loaded lists:', loadedLists);
+      setLists(loadedLists);
+    } catch (error) {
+      console.error('Error loading lists:', error);
+    }
   };
 
   useFocusEffect(
@@ -111,12 +116,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         }
         keyExtractor={item => ('items' in item ? item.id : `${item.listId}-${item.item.id}`)}
         contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
       />
 
-      <SafeAreaView
-        edges={['bottom']}
-        style={[styles.footer, { backgroundColor: theme.colors.background }]}
-      >
+      <SafeAreaView edges={['bottom']} style={styles.footer}>
         <ActionButton label="Create New List" onPress={() => navigation.navigate('CreateList')} />
       </SafeAreaView>
     </View>

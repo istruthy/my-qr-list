@@ -27,13 +27,13 @@ export const saveList = async (list: List): Promise<void> => {
   try {
     const lists = await getAllLists();
     const existingIndex = lists.findIndex(l => l.id === list.id);
-    
+
     if (existingIndex >= 0) {
       lists[existingIndex] = list;
     } else {
       lists.push(list);
     }
-    
+
     await AsyncStorage.setItem(LISTS_KEY, JSON.stringify(lists));
   } catch (error) {
     console.error('Error saving list:', error);
@@ -53,12 +53,20 @@ export const deleteList = async (id: string): Promise<void> => {
 export const updateList = async (updatedList: List): Promise<void> => {
   try {
     const lists = await getAllLists();
-    const updatedLists = lists.map(list => 
-      list.id === updatedList.id ? updatedList : list
-    );
+    const updatedLists = lists.map(list => (list.id === updatedList.id ? updatedList : list));
     await AsyncStorage.setItem(LISTS_KEY, JSON.stringify(updatedLists));
   } catch (error) {
     console.error('Error updating list:', error);
     throw error;
   }
-}; 
+};
+
+export const getListByBarcode = async (barcode: string): Promise<List | null> => {
+  try {
+    const lists = await getAllLists();
+    return lists.find(list => list.barcode === barcode) || null;
+  } catch (error) {
+    console.error('Error getting list by barcode:', error);
+    return null;
+  }
+};

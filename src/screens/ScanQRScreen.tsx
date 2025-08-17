@@ -5,6 +5,7 @@ import { Button, useTheme } from 'react-native-paper';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import * as Linking from 'expo-linking';
+import { getListByBarcode } from '../utils/storage';
 
 type ScanQRScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'ScanQR'>;
@@ -22,11 +23,26 @@ export const ScanQRScreen: React.FC<ScanQRScreenProps> = ({ navigation, route })
   const theme = useTheme();
   const mode = route.params?.mode || 'view';
 
-  const handleBarCodeScanned = ({ data }: BarcodeScanningResult) => {
+  const handleBarCodeScanned = async ({ data }: BarcodeScanningResult) => {
     setScanned(true);
 
+    // First check if this is a valid URL for viewing
+    if (data.startsWith('myqrlist://list/') || data.startsWith('exp://')) {
+      const listId = data.split('/').pop() || '';
+      navigation.replace('ViewList', { listId });
+      return;
+    }
+
+    // Check if this barcode is already associated with a list
+    const existingList = await getListByBarcode(data);
+    if (existingList) {
+      navigation.replace('ViewList', { listId: existingList.id });
+      return;
+    }
+
+    // If we're in create mode and the barcode isn't associated with a list,
+    // pass it back to the create screen
     if (mode === 'create') {
-      // Call the callback with the scanned code and go back
       route.params?.onCodeScanned?.(data);
       navigation.goBack();
       return;

@@ -1,6 +1,8 @@
 export type RootStackParamList = {
   Home: undefined;
-  CreateList: undefined;
+  CreateList: {
+    scannedBarcode?: string;
+  };
   ViewList: { listId: string };
   ScanQR: {
     mode: 'view' | 'create';
