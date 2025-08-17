@@ -24,12 +24,37 @@ export const CreateListScreen: React.FC<CreateListScreenProps> = ({ navigation, 
   const [error, setError] = useState<string | null>(null);
   const theme = useTheme();
 
+  console.log('CreateListScreen: Component mounted/rendered');
+  console.log('CreateListScreen: Current state:', { title, barcode, showBarcodeModal });
+  console.log('CreateListScreen: Route params:', route.params);
+
   // Watch for scanned barcode updates
   useEffect(() => {
+    console.log('CreateListScreen: useEffect triggered, route.params:', route.params);
     if (route.params?.scannedBarcode) {
-      setBarcode(route.params.scannedBarcode);
+      const scannedCode = route.params.scannedBarcode;
+      console.log('CreateListScreen: Received scanned barcode:', scannedCode);
+      setBarcode(scannedCode);
+      console.log('CreateListScreen: Set barcode state to:', scannedCode);
+
+      // Auto-populate the title with the scanned barcode (cleaned up)
+      const cleanBarcode = scannedCode.replace(/\n/g, '').trim();
+      console.log('CreateListScreen: Cleaned barcode:', cleanBarcode);
+      if (!title.trim()) {
+        setTitle(cleanBarcode);
+        console.log('CreateListScreen: Auto-populated title with:', cleanBarcode);
+      } else {
+        console.log('CreateListScreen: Title already exists, not overwriting');
+      }
+
+      // Clear scannedBarcode from params so it doesn't interfere with future saves
+      navigation.setParams({ scannedBarcode: undefined });
+
+      // Close the barcode modal since we now have a barcode
+      setShowBarcodeModal(false);
+      console.log('CreateListScreen: Closed barcode modal, showBarcodeModal set to false');
     }
-  }, [route.params?.scannedBarcode]);
+  }, [route.params?.scannedBarcode, title]);
 
   const handleAddItem = async () => {
     if (newItem.trim()) {
@@ -65,7 +90,7 @@ export const CreateListScreen: React.FC<CreateListScreenProps> = ({ navigation, 
       };
 
       await saveList(newList);
-      navigation.goBack();
+      navigation.navigate('Home');
     } catch (error) {
       console.error('Error saving list:', error);
       setError('Failed to save list');
@@ -120,6 +145,12 @@ export const CreateListScreen: React.FC<CreateListScreenProps> = ({ navigation, 
         />
         <IconButton icon="barcode-scan" size={24} onPress={handleScanCode} />
       </View>
+
+      {error && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
 
       {barcode && (
         <View style={styles.barcodeContainer}>
@@ -235,5 +266,16 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     marginVertical: 4,
+  },
+  errorContainer: {
+    backgroundColor: '#ffebee',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  errorText: {
+    color: '#d32f2f',
+    fontSize: 14,
+    textAlign: 'center',
   },
 });

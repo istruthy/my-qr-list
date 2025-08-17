@@ -37,6 +37,7 @@ export const saveList = async (list: List): Promise<void> => {
     await AsyncStorage.setItem(LISTS_KEY, JSON.stringify(lists));
   } catch (error) {
     console.error('Error saving list:', error);
+    throw error; // Re-throw the error so calling code can handle it
   }
 };
 

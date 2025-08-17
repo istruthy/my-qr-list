@@ -38,6 +38,7 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
   const [editingItemImage, setEditingItemImage] = useState<string | null>(null);
   const [showImagePickerModal, setShowImagePickerModal] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [newItemText, setNewItemText] = useState('');
   const theme = useTheme();
   const navigationState = useNavigationState(state => state);
   const isDeepLinked = navigationState?.routes.length === 1;
@@ -119,7 +120,15 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
   };
 
   const handleEditItem = async (itemId: string) => {
-    if (!list || editingItemText.trim() === '') return;
+    if (!list || editingItemText.trim() === '') {
+      // If text is empty, don't save and revert to original text
+      const originalItem = list?.items.find(item => item.id === itemId);
+      if (originalItem) {
+        setEditingItemText(originalItem.text);
+      }
+      setEditingItemId(null);
+      return;
+    }
 
     const updatedItems = list.items.map(item =>
       item.id === itemId ? { ...item, text: editingItemText.trim() } : item
@@ -141,7 +150,7 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
 
     const newItem: ListItem = {
       id: await generateUUID(),
-      text: '',
+      text: 'New Item',
       completed: false,
       createdAt: new Date().toISOString(),
     };
@@ -153,8 +162,30 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
     };
 
     await handleUpdateList(updatedList);
+
+    // Automatically start editing the new item
     setEditingItemId(newItem.id);
-    setEditingItemText('');
+    setEditingItemText('New Item');
+  };
+
+  const handleAddItemWithText = async () => {
+    if (!list || !newItemText.trim()) return;
+
+    const newItem: ListItem = {
+      id: await generateUUID(),
+      text: newItemText.trim(),
+      completed: false,
+      createdAt: new Date().toISOString(),
+    };
+
+    const updatedList = {
+      ...list,
+      items: [...list.items, newItem],
+      updatedAt: new Date().toISOString(),
+    };
+
+    await handleUpdateList(updatedList);
+    setNewItemText('');
   };
 
   const handlePrintQR = async () => {
@@ -289,6 +320,8 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
   };
 
   const handleScanQR = () => {
+    console.log('ViewListScreen: handleScanQR called');
+    console.log('ViewListScreen: Navigating to ScanQR with mode: view');
     navigation.navigate('ScanQR', { mode: 'view' });
   };
 
@@ -354,6 +387,15 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
             </View>
             <View style={styles.itemActions}>
               <IconButton
+                icon="pencil"
+                size={20}
+                onPress={() => {
+                  setEditingItemId(item.id);
+                  setEditingItemText(item.text);
+                }}
+                style={styles.actionButton}
+              />
+              <IconButton
                 icon={item.imageUrl ? 'image-edit' : 'image-plus'}
                 size={20}
                 onPress={() => pickImage(item.id)}
@@ -370,15 +412,34 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
         ))}
       </ScrollView>
 
-      <SafeAreaView edges={['bottom']} style={styles.footer}>
-        <ActionButton label="Add Item" onPress={handleAddItem} />
-      </SafeAreaView>
-
       <FAB
         icon="qrcode-scan"
         style={[styles.fab, { backgroundColor: theme.colors.primary }]}
         onPress={handleScanQR}
+        label="Scan QR"
+        color="white"
+        visible={true}
       />
+
+      <SafeAreaView edges={['bottom']} style={styles.footer}>
+        <View style={styles.addItemFooter}>
+          <TextInput
+            style={styles.addItemInput}
+            placeholder="Add new item..."
+            value={newItemText}
+            onChangeText={setNewItemText}
+            onSubmitEditing={handleAddItemWithText}
+          />
+          <IconButton
+            icon="plus"
+            size={24}
+            onPress={handleAddItemWithText}
+            disabled={!newItemText.trim()}
+          />
+        </View>
+        <ActionButton label="Add Empty Item" onPress={handleAddItem} />
+        <ActionButton label="Test Scan QR" onPress={handleScanQR} style={{ marginTop: 8 }} />
+      </SafeAreaView>
 
       <Portal>
         <Modal
@@ -575,6 +636,22 @@ const styles = StyleSheet.create({
   footer: {
     paddingTop: 8,
   },
+  addItemFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  addItemInput: {
+    flex: 1,
+    marginRight: 8,
+    paddingVertical: 0,
+    paddingHorizontal: 0,
+    fontSize: 16,
+  },
   imagePickerButtons: {
     width: '100%',
     gap: 8,
@@ -583,9 +660,12 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   fab: {
-    position: 'absolute',
-    margin: 16,
-    right: 0,
-    bottom: 80, // Position above the Add Item button
+    alignSelf: 'center',
+    marginVertical: 16,
+    elevation: 8, // Android shadow
+    shadowColor: '#000', // iOS shadow
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
 });

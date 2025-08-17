@@ -10,6 +10,7 @@ export interface List {
   id: string;
   title: string;
   items: ListItem[];
+  barcode: string | null;
   createdAt: string;
   updatedAt: string;
 }
