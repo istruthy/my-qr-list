@@ -17,7 +17,7 @@ import * as Print from 'expo-print';
 import * as Linking from 'expo-linking';
 import * as ImagePicker from 'expo-image-picker';
 import { RootStackParamList } from '../types';
-import { getListById, updateList } from '../utils/storage';
+import { getListWithItems, updateList, createItem, updateItem, deleteItem } from '../db/services';
 import { List, ListItem } from '../types';
 import { generateUUID } from '../utils/uuid';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -50,7 +50,7 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
   useEffect(() => {
     if (list) {
       navigation.setOptions({
-        headerTitle: list.title,
+        headerTitle: list.title || 'Room Details',
         headerRight: () => (
           <IconButton
             icon="qrcode"
@@ -65,15 +65,64 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
   }, [list, navigation]);
 
   const loadList = async () => {
-    const loadedList = await getListById(route.params.listId);
-    if (loadedList) {
-      setList(loadedList);
-      setEditingTitle(loadedList.title);
-    }
+    console.log('ViewListScreen: Loading list with ID:', route.params.listId);
+
+    // TODO: Load from database when ready
+    // For now, we'll use mock data based on the list ID
+    const mockListData = {
+      id: route.params.listId,
+      title: `Room ${route.params.listId}`,
+      items: [
+        {
+          id: '1',
+          text: 'Sofa',
+          completed: false,
+          createdAt: new Date().toISOString(),
+          imageUrl: undefined,
+        },
+        {
+          id: '2',
+          text: 'Coffee Table',
+          completed: true,
+          createdAt: new Date().toISOString(),
+          imageUrl: undefined,
+        },
+        {
+          id: '3',
+          text: 'TV Stand',
+          completed: false,
+          createdAt: new Date().toISOString(),
+          imageUrl: undefined,
+        },
+        {
+          id: '4',
+          text: 'Lamp',
+          completed: true,
+          createdAt: new Date().toISOString(),
+          imageUrl: undefined,
+        },
+        {
+          id: '5',
+          text: 'Bookshelf',
+          completed: false,
+          createdAt: new Date().toISOString(),
+          imageUrl: undefined,
+        },
+      ],
+      barcode: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    console.log('ViewListScreen: Using mock data:', mockListData);
+    setList(mockListData);
+    setEditingTitle(mockListData.title);
   };
 
   const handleUpdateList = async (updatedList: List) => {
-    await updateList(updatedList);
+    // TODO: Update database when ready
+    // For now, just update local state
+    console.log('ViewListScreen: Updating list (mock):', updatedList);
     setList(updatedList);
   };
 
@@ -344,7 +393,7 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
               onPress={() =>
                 navigation.reset({
                   index: 0,
-                  routes: [{ name: 'Home' }],
+                  routes: [{ name: 'MainTabs' }],
                 })
               }
               style={styles.headerButton}
@@ -354,62 +403,92 @@ export const ViewListScreen: React.FC<ViewListScreenProps> = ({ navigation, rout
       </View>
 
       <ScrollView style={styles.itemsList}>
-        {list.items.map(item => (
-          <View key={item.id} style={styles.itemContainer}>
-            <Checkbox
-              status={item.completed ? 'checked' : 'unchecked'}
-              onPress={() => toggleItem(item.id)}
-            />
-            <View style={styles.itemContent}>
-              {item.imageUrl ? (
-                <Image source={{ uri: item.imageUrl }} style={styles.thumbnail} />
-              ) : null}
-              {editingItemId === item.id ? (
-                <TextInput
-                  style={styles.itemInput}
-                  value={editingItemText}
-                  onChangeText={setEditingItemText}
-                  onBlur={() => handleEditItem(item.id)}
-                  onSubmitEditing={() => handleEditItem(item.id)}
-                  autoFocus
-                />
-              ) : (
-                <Text
-                  style={[styles.itemText, item.completed && styles.completedItem]}
+        {list?.items?.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateText}>No items yet</Text>
+            <Text style={styles.emptyStateSubtext}>
+              Add some items to get started with inventory validation
+            </Text>
+          </View>
+        ) : (
+          list.items.map(item => (
+            <View key={item.id} style={styles.itemContainer}>
+              <Checkbox
+                status={item.completed ? 'checked' : 'unchecked'}
+                onPress={() => toggleItem(item.id)}
+              />
+              <View style={styles.itemContent}>
+                {item.imageUrl ? (
+                  <Image source={{ uri: item.imageUrl }} style={styles.thumbnail} />
+                ) : null}
+                {editingItemId === item.id ? (
+                  <View style={styles.editItemContainer}>
+                    <TextInput
+                      style={styles.itemInput}
+                      value={editingItemText}
+                      onChangeText={setEditingItemText}
+                      autoFocus
+                      onBlur={() => handleEditItem(item.id)}
+                      onSubmitEditing={() => handleEditItem(item.id)}
+                    />
+                    <View style={styles.editActions}>
+                      <IconButton
+                        icon="check"
+                        size={20}
+                        onPress={() => handleEditItem(item.id)}
+                        style={styles.actionButton}
+                        iconColor="#4caf50"
+                      />
+                      <IconButton
+                        icon="close"
+                        size={20}
+                        onPress={() => {
+                          setEditingItemId(null);
+                          setEditingItemText('');
+                        }}
+                        style={styles.actionButton}
+                        iconColor="#f44336"
+                      />
+                    </View>
+                  </View>
+                ) : (
+                  <Text
+                    style={[styles.itemText, item.completed && styles.completedItem]}
+                    onPress={() => {
+                      setEditingItemId(item.id);
+                      setEditingItemText(item.text);
+                    }}
+                  >
+                    {item.text}
+                  </Text>
+                )}
+              </View>
+              <View style={styles.itemActions}>
+                <IconButton
+                  icon="pencil"
+                  size={20}
                   onPress={() => {
                     setEditingItemId(item.id);
                     setEditingItemText(item.text);
                   }}
-                >
-                  {item.text}
-                </Text>
-              )}
+                  style={styles.actionButton}
+                />
+                <IconButton
+                  icon={item.imageUrl ? 'image-edit' : 'image-plus'}
+                  size={20}
+                  onPress={() => pickImage(item.id)}
+                  style={styles.actionButton}
+                />
+                <IconButton
+                  icon="delete"
+                  size={20}
+                  onPress={() => handleDeleteItem(item.id)}
+                  style={styles.actionButton}
+                />
+              </View>
             </View>
-            <View style={styles.itemActions}>
-              <IconButton
-                icon="pencil"
-                size={20}
-                onPress={() => {
-                  setEditingItemId(item.id);
-                  setEditingItemText(item.text);
-                }}
-                style={styles.actionButton}
-              />
-              <IconButton
-                icon={item.imageUrl ? 'image-edit' : 'image-plus'}
-                size={20}
-                onPress={() => pickImage(item.id)}
-                style={styles.actionButton}
-              />
-              <IconButton
-                icon="delete"
-                size={20}
-                onPress={() => handleDeleteItem(item.id)}
-                style={styles.actionButton}
-              />
-            </View>
-          </View>
-        ))}
+          ))
+        )}
       </ScrollView>
 
       <FAB
@@ -667,5 +746,36 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+    marginTop: 20,
+  },
+  emptyStateText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  emptyStateSubtext: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+  },
+  editItemContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  editActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 8,
   },
 });

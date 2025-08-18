@@ -1,0 +1,84 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "tables": {
+    "lists": {
+      "name": "lists",
+      "schema": "",
+      "columns": [
+        {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        {
+          "name": "property_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        {
+          "name": "barcode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        {
+          "name": "is_completed",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        {
+          "name": "completed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "lists_property_id_properties_id_fk",
+          "tableName": "lists",
+          "columns": ["property_id"],
+          "foreignTableName": "properties",
+          "foreignColumns": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_lists_completion",
+          "tableName": "lists",
+          "columns": ["is_completed", "completed_at"]
+        }
+      ]
+    }
+  }
+}

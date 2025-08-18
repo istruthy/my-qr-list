@@ -1,13 +1,12 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Provider as PaperProvider, DefaultTheme } from 'react-native-paper';
-import { HomeScreen } from './src/screens/HomeScreen';
+import { Provider as PaperProvider, DefaultTheme, IconButton } from 'react-native-paper';
+import { MainTabNavigator } from './src/navigation/MainTabNavigator';
 import { CreateListScreen } from './src/screens/CreateListScreen';
 import { ViewListScreen } from './src/screens/ViewListScreen';
 import { ScanQRScreen } from './src/screens/ScanQRScreen';
 import { RootStackParamList } from './src/types';
-import * as Linking from 'expo-linking';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -20,31 +19,12 @@ const theme = {
   },
 };
 
-const prefix = Linking.createURL('/');
-
 export default function App() {
   return (
     <PaperProvider theme={theme}>
-      <NavigationContainer
-        linking={{
-          prefixes: [prefix, 'myqrlist://', 'https://myqrlist.app'],
-          config: {
-            screens: {
-              Home: 'home',
-              CreateList: 'create',
-              ViewList: {
-                path: 'list/:listId',
-                parse: {
-                  listId: (listId: string) => listId,
-                },
-              },
-              ScanQR: 'scan',
-            },
-          },
-        }}
-      >
+      <NavigationContainer>
         <Stack.Navigator
-          initialRouteName="Home"
+          initialRouteName="MainTabs"
           screenOptions={{
             headerStyle: {
               backgroundColor: theme.colors.primary,
@@ -56,9 +36,9 @@ export default function App() {
           }}
         >
           <Stack.Screen
-            name="Home"
-            component={HomeScreen}
-            options={{ title: 'My QR Lists' }}
+            name="MainTabs"
+            component={MainTabNavigator}
+            options={{ headerShown: false }}
           />
           <Stack.Screen
             name="CreateList"
@@ -68,14 +48,14 @@ export default function App() {
           <Stack.Screen
             name="ViewList"
             component={ViewListScreen}
-            options={{ 
+            options={{
               headerTitle: '',
-              headerBackTitle: ' '
+              headerBackTitle: ' ',
             }}
           />
           <Stack.Screen
             name="ScanQR"
-            component={ScanQRScreen}
+            component={ScanQRScreen as any}
             options={{ title: 'Scan QR Code' }}
           />
         </Stack.Navigator>

@@ -90,7 +90,7 @@ export const CreateListScreen: React.FC<CreateListScreenProps> = ({ navigation, 
       };
 
       await saveList(newList);
-      navigation.navigate('Home');
+      navigation.navigate('MainTabs');
     } catch (error) {
       console.error('Error saving list:', error);
       setError('Failed to save list');
