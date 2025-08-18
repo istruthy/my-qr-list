@@ -88,9 +88,8 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
 
   const checkRoomCompletion = () => {
     const totalItems = inventoryItems.length;
-    const completedItems = inventoryItems.filter(
-      item => item.status === 'verified' || item.status === 'damaged' || item.status === 'missing'
-    ).length;
+    // Only count verified items as truly completed
+    const completedItems = inventoryItems.filter(item => item.status === 'verified').length;
     const completionPercentage =
       totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
     const isCompleted = completionPercentage === 100;
@@ -102,11 +101,11 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
       isCompleted,
     });
 
-    // Auto-show completion modal if room is completed
-    if (isCompleted && !showCompletionModal) {
+    // Auto-show completion modal when room is truly completed (all items verified)
+    if (isCompleted && !showCompletionModal && totalItems > 0) {
       setTimeout(() => {
         setShowCompletionModal(true);
-      }, 500);
+      }, 1000);
     }
   };
 
@@ -141,10 +140,8 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
           name: 'Lamp',
           description: 'Table lamp with shade',
           expectedQuantity: 2,
-          actualQuantity: 1,
-          status: 'missing',
-          damageReason: 'missing',
-          notes: 'One lamp not found during inspection',
+          actualQuantity: 2,
+          status: 'pending',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
@@ -154,9 +151,17 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
           description: 'Area rug 8x10',
           expectedQuantity: 1,
           actualQuantity: 1,
-          status: 'damaged',
-          damageReason: 'stained',
-          notes: 'Large coffee stain in center',
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          id: '5',
+          name: 'Throw Pillows',
+          description: 'Decorative pillows for sofa',
+          expectedQuantity: 4,
+          actualQuantity: 4,
+          status: 'pending',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
@@ -200,6 +205,7 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
   };
 
   const handleScanItem = (item: InventoryItem) => {
+    // Navigate to the root stack to access ScanQR screen
     navigation.getParent()?.navigate('ScanQR', {
       mode: 'item',
       propertyId: propertyId,
@@ -210,6 +216,20 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
         }
       },
     });
+  };
+
+  const handleVerifyItem = (item: InventoryItem) => {
+    const updatedItems = inventoryItems.map(invItem =>
+      invItem.id === item.id
+        ? {
+            ...invItem,
+            actualQuantity: item.expectedQuantity,
+            status: 'verified' as const,
+            updatedAt: new Date().toISOString(),
+          }
+        : invItem
+    );
+    setInventoryItems(updatedItems);
   };
 
   const handleQuantityUpdate = (item: InventoryItem, newQuantity: number) => {
@@ -346,31 +366,18 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
             style={styles.actionButton}
             icon="qrcode-scan"
           >
-            Scan
+            Scan QR
           </Button>
-
           {item.status === 'pending' && (
             <Button
-              mode="outlined"
-              onPress={() => {
-                const newQuantity = prompt(
-                  'Enter actual quantity:',
-                  item.expectedQuantity.toString()
-                );
-                if (newQuantity) {
-                  const quantity = parseInt(newQuantity);
-                  if (!isNaN(quantity) && quantity >= 0) {
-                    handleQuantityUpdate(item, quantity);
-                  }
-                }
-              }}
+              mode="contained"
+              onPress={() => handleVerifyItem(item)}
               style={styles.actionButton}
-              icon="counter"
+              icon="check"
             >
-              Update Qty
+              Verify
             </Button>
           )}
-
           <Button
             mode="outlined"
             onPress={() => handleDamageReport(item)}
@@ -454,6 +461,22 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
           </View>
         </View>
       </View>
+
+      {/* Manual completion button */}
+      {!roomCompletionStatus.isCompleted && roomCompletionStatus.totalItems > 0 && (
+        <View style={styles.completionButtonContainer}>
+          <ActionButton
+            label="Mark Room as Complete"
+            onPress={showRoomCompletionModal}
+            style={styles.completionButton}
+            variant="primary"
+            icon="check-circle"
+          />
+          <Text style={styles.completionButtonText}>
+            Mark room as complete when all items are verified
+          </Text>
+        </View>
+      )}
 
       {inventoryItems.length === 0 ? (
         <View style={styles.emptyState}>
@@ -803,5 +826,21 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     width: '100%',
+  },
+  completionButtonContainer: {
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 16,
+    paddingHorizontal: 16,
+  },
+  completionButton: {
+    minWidth: '100%',
+    marginBottom: 8,
+  },
+  completionButtonText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });

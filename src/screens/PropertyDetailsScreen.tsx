@@ -145,7 +145,7 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
     const newRoom: Room = {
       id: await generateUUID(),
       name: newRoomName.trim(),
-      description: newRoomDescription.trim() || undefined,
+      description: newRoomDescription.trim() || null,
       propertyId: propertyId,
       barcode: null,
       isCompleted: false,
@@ -172,6 +172,7 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
   };
 
   const handleScanQR = () => {
+    // Navigate to the root stack to access ScanQR screen
     navigation.getParent()?.navigate('ScanQR', {
       mode: 'room',
       propertyId: propertyId,

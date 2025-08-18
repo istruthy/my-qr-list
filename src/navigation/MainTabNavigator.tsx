@@ -5,10 +5,14 @@ import { PropertiesStackNavigator } from './PropertiesStackNavigator';
 import { ScanQRScreen } from '../screens/ScanQRScreen';
 import { AdminScreen } from '../screens/AdminScreen';
 import { MainTabParamList } from '../types';
+import { useNavigation, useRoute } from '@react-navigation/native';
 
 // Wrapper component for ScanQRScreen to handle navigation props
 const ScanTabScreen: React.FC = () => {
-  return <ScanQRScreen navigation={{} as any} route={{}} />;
+  const navigation = useNavigation();
+  const route = useRoute();
+
+  return <ScanQRScreen navigation={navigation} route={route} />;
 };
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
