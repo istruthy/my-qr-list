@@ -11,13 +11,16 @@ import {
   Chip,
   IconButton,
   ProgressBar,
+  ActivityIndicator,
 } from 'react-native-paper';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
-
+import { useQuery, useMutation } from '@apollo/client';
+import { GET_LIST } from '../graphql/queries';
 import { PropertiesStackParamList } from '../types';
 import { ActionButton } from '../components/ActionButton';
 import { generateUUID } from '../utils/uuid';
+import { useGraphQL } from '../hooks/useGraphQL';
 
 type RoomDetailsScreenProps = {
   navigation: NativeStackNavigationProp<PropertiesStackParamList, 'RoomDetails'>;
@@ -28,14 +31,16 @@ type InventoryItem = {
   id: string;
   name: string;
   description?: string;
-  expectedQuantity: number;
+  quantity: number; // Expected quantity from GraphQL
+  condition?: string;
+  estimatedValue?: number;
+  isCompleted: boolean; // Completion status from GraphQL
+  createdAt: string;
+  // Additional fields for local state management
   actualQuantity?: number;
-  barcode?: string;
-  status: 'pending' | 'verified' | 'damaged' | 'missing';
   damageReason?: string;
   notes?: string;
-  createdAt: string;
-  updatedAt: string;
+  status: 'pending' | 'verified' | 'damaged' | 'missing'; // Local status for UI
 };
 
 type DamageReason = 'broken' | 'missing' | 'worn' | 'stained' | 'other';
@@ -46,6 +51,32 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
   const { roomId, roomName, propertyId } = route.params;
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const { useSafeQuery } = useGraphQL();
+
+  // GraphQL query to fetch room data
+  console.log('RoomDetailsScreen: GraphQL query - roomId:', roomId);
+  const {
+    data,
+    loading: graphqlLoading,
+    error,
+    refetch,
+  } = useSafeQuery<{ list: any }, { id: string }>(GET_LIST, {
+    variables: { id: roomId },
+    onError: error => {
+      console.error('Error fetching room data:', error);
+      Alert.alert('Error', 'Failed to load room data. Please try again.');
+    },
+  });
+
+  console.log(
+    'RoomDetailsScreen: GraphQL query state - loading:',
+    graphqlLoading,
+    'error:',
+    error,
+    'data:',
+    data
+  );
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDamageModal, setShowDamageModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
@@ -78,8 +109,29 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
   }, [navigation]);
 
   useEffect(() => {
-    loadInventoryItems();
-  }, [roomId]);
+    if (data?.list) {
+      // Transform GraphQL data to match our local InventoryItem type
+      const graphqlItems = data.list.items || [];
+      const transformedItems: InventoryItem[] = graphqlItems.map((item: any) => ({
+        id: item.id,
+        name: item.name,
+        description: item.description,
+        quantity: item.quantity,
+        condition: item.condition,
+        estimatedValue: item.estimatedValue,
+        isCompleted: item.isCompleted,
+        createdAt: item.createdAt,
+        // Set local status based on isCompleted
+        status: item.isCompleted ? 'verified' : 'pending',
+        // Initialize actualQuantity as undefined (will be set when verified)
+        actualQuantity: undefined,
+      }));
+
+      setInventoryItems(transformedItems);
+      setIsLoading(false);
+      console.log('RoomDetailsScreen: Transformed GraphQL items:', transformedItems);
+    }
+  }, [data, roomId]);
 
   // Check room completion status whenever inventory items change
   useEffect(() => {
@@ -110,69 +162,8 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
   };
 
   const loadInventoryItems = async () => {
-    try {
-      setIsLoading(true);
-      // TODO: Load from database when ready
-      // For now, using mock data
-      const mockItems: InventoryItem[] = [
-        {
-          id: '1',
-          name: 'Coffee Table',
-          description: 'Wooden coffee table with glass top',
-          expectedQuantity: 1,
-          actualQuantity: 1,
-          status: 'verified',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: '2',
-          name: 'Sofa',
-          description: '3-seater fabric sofa',
-          expectedQuantity: 1,
-          actualQuantity: 1,
-          status: 'verified',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: '3',
-          name: 'Lamp',
-          description: 'Table lamp with shade',
-          expectedQuantity: 2,
-          actualQuantity: 2,
-          status: 'pending',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: '4',
-          name: 'Rug',
-          description: 'Area rug 8x10',
-          expectedQuantity: 1,
-          actualQuantity: 1,
-          status: 'pending',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: '5',
-          name: 'Throw Pillows',
-          description: 'Decorative pillows for sofa',
-          expectedQuantity: 4,
-          actualQuantity: 4,
-          status: 'pending',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      ];
-
-      setInventoryItems(mockItems);
-      setIsLoading(false);
-    } catch (error) {
-      console.error('Error loading inventory items:', error);
-      setIsLoading(false);
-    }
+    // This function is no longer needed as we're using GraphQL
+    // Keeping it for compatibility but it's not used
   };
 
   const handleAddItem = async () => {
@@ -191,10 +182,10 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
       id: await generateUUID(),
       name: newItemName.trim(),
       description: newItemDescription.trim() || undefined,
-      expectedQuantity: quantity,
+      quantity: quantity,
       status: 'pending',
+      isCompleted: false,
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
     };
 
     setInventoryItems([...inventoryItems, newItem]);
@@ -212,7 +203,7 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
       roomId: roomId,
       onItemScanned: (itemId: string) => {
         if (itemId === item.id) {
-          handleQuantityUpdate(item, item.expectedQuantity);
+          handleQuantityUpdate(item, item.quantity);
         }
       },
     });
@@ -223,9 +214,8 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
       invItem.id === item.id
         ? {
             ...invItem,
-            actualQuantity: item.expectedQuantity,
+            actualQuantity: item.quantity,
             status: 'verified' as const,
-            updatedAt: new Date().toISOString(),
           }
         : invItem
     );
@@ -239,7 +229,6 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
             ...invItem,
             actualQuantity: newQuantity,
             status: 'verified' as const,
-            updatedAt: new Date().toISOString(),
           }
         : invItem
     );
@@ -263,7 +252,6 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
             status: 'damaged' as const,
             damageReason,
             notes: damageNotes.trim() || undefined,
-            updatedAt: new Date().toISOString(),
           }
         : invItem
     );
@@ -337,7 +325,7 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
 
         <View style={styles.quantitySection}>
           <Text variant="bodyMedium" style={styles.quantityLabel}>
-            Expected: {item.expectedQuantity}
+            Expected: {item.quantity}
           </Text>
           {item.actualQuantity !== undefined && (
             <Text variant="bodyMedium" style={styles.quantityLabel}>
@@ -391,11 +379,27 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
     </Card>
   );
 
-  if (isLoading) {
+  if (isLoading || graphqlLoading) {
     return (
       <View style={styles.container}>
         <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text variant="headlineMedium">Loading Inventory...</Text>
+          <Text style={styles.loadingSubtext}>Room ID: {roomId}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text variant="headlineMedium">Error Loading Room</Text>
+          <Text style={styles.loadingSubtext}>Failed to load room data</Text>
+          <Button mode="contained" onPress={() => refetch()} style={styles.testButton}>
+            Retry
+          </Button>
         </View>
       </View>
     );
@@ -811,6 +815,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
+  loadingSubtext: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 10,
+    textAlign: 'center',
+  },
   completionOverview: {
     alignItems: 'center',
     marginBottom: 12,
@@ -843,4 +853,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
+  testButton: {
+    marginTop: 10,
+  },
 });
+
+export default RoomDetailsScreen;

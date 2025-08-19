@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Dimensions, FlatList, Image } from 'react-native';
+import { View, StyleSheet, Dimensions, FlatList, Image, Alert } from 'react-native';
 import {
   Text,
   Button,
@@ -11,13 +11,15 @@ import {
   IconButton,
   ProgressBar,
   Chip,
+  ActivityIndicator,
 } from 'react-native-paper';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { CompositeNavigationProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useQuery } from '@apollo/client';
+import { GET_PROPERTIES } from '../graphql/queries';
 import { MainTabParamList, PropertiesStackParamList } from '../types';
-import { getPropertiesByUserId } from '../db/services';
-import { Property, PropertyWithCompletion } from '../db/schema';
+import { Property } from '../graphql/types';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -32,165 +34,195 @@ type PropertySelectionScreenProps = {
 
 export const PropertySelectionScreen: React.FC<PropertySelectionScreenProps> = ({ navigation }) => {
   const theme = useTheme();
-  const [properties, setProperties] = useState<PropertyWithCompletion[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    loadProperties();
-  }, []);
+  console.log('PropertySelectionScreen: Component rendering...');
 
-  const loadProperties = async () => {
+  // GraphQL query to fetch all properties
+  const { data, loading, error, refetch } = useQuery<{ properties: Property[] }>(GET_PROPERTIES, {
+    onError: error => {
+      console.error('Error fetching properties:', error);
+      Alert.alert('Error', 'Failed to load properties. Please try again.');
+    },
+  });
+
+  // Extract properties from GraphQL response
+  const properties = data?.properties || [];
+  console.log('PropertySelectionScreen: Fetched properties from GraphQL:', properties);
+  console.log('PropertySelectionScreen: Properties count:', properties.length);
+  console.log('PropertySelectionScreen: Loading state:', loading);
+  console.log('PropertySelectionScreen: Error state:', error);
+  console.log('PropertySelectionScreen: Raw data:', data);
+
+  // Fallback data for debugging - remove this once GraphQL is working
+  const fallbackProperties = [
+    {
+      id: 'debug-1',
+      name: 'Debug Property 1',
+      address: '123 Debug St, Test City',
+      rooms: [],
+    },
+    {
+      id: 'debug-2',
+      name: 'Debug Property 2',
+      address: '456 Debug Ave, Test City',
+      rooms: [],
+    },
+  ];
+
+  // Use fallback data if GraphQL fails
+  const displayProperties = properties.length > 0 ? properties : fallbackProperties;
+
+  const handlePropertySelect = (property: Property) => {
+    console.log(
+      'PropertySelectionScreen: Navigating to PropertyDetails with propertyId:',
+      property.id
+    );
+    console.log('PropertySelectionScreen: Full property object:', property);
+
+    if (!property.id) {
+      console.error('PropertySelectionScreen: Property has no ID!', property);
+      Alert.alert('Error', 'Property ID not found. Please try again.');
+      return;
+    }
+
     try {
-      setIsLoading(true);
-      // TODO: Load from database when ready
-      // For now, using mock data with placeholder images and completion data
-      const mockProperties: PropertyWithCompletion[] = [
-        {
-          id: '1',
-          name: 'Sunset Villa',
-          address: '123 Ocean Drive, Malibu, CA',
-          description: 'Luxurious beachfront property with stunning ocean views',
-          userId: 'user1',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          lists: [],
-          totalRooms: 5,
-          completedRooms: 3,
-          completionPercentage: 60,
-        },
-        {
-          id: '2',
-          name: 'Mountain Lodge',
-          address: '456 Pine Ridge, Aspen, CO',
-          description: 'Cozy mountain retreat surrounded by pine forests',
-          userId: 'user1',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          lists: [],
-          totalRooms: 3,
-          completedRooms: 3,
-          completionPercentage: 100,
-        },
-        {
-          id: '3',
-          name: 'Urban Loft',
-          address: '789 Downtown Ave, New York, NY',
-          description: 'Modern city apartment with industrial chic design',
-          userId: 'user1',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          lists: [],
-          totalRooms: 4,
-          completedRooms: 0,
-          completionPercentage: 0,
-        },
-        {
-          id: '4',
-          name: 'Country Estate',
-          address: '321 Farm Road, Napa Valley, CA',
-          description: 'Sprawling vineyard estate with rustic charm',
-          userId: 'user1',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          lists: [],
-          totalRooms: 8,
-          completedRooms: 6,
-          completionPercentage: 75,
-        },
-      ];
-
-      setProperties(mockProperties);
-      setIsLoading(false);
+      console.log('PropertySelectionScreen: Attempting navigation with params:', {
+        propertyId: property.id,
+      });
+      navigation.navigate('PropertyDetails', { propertyId: property.id });
+      console.log('PropertySelectionScreen: Navigation successful');
     } catch (error) {
-      console.error('Error loading properties:', error);
-      setIsLoading(false);
+      console.error('PropertySelectionScreen: Navigation failed:', error);
+      Alert.alert('Navigation Error', 'Failed to navigate to property details. Please try again.');
     }
   };
 
-  const handlePropertySelect = (property: PropertyWithCompletion) => {
-    navigation.navigate('PropertyDetails', { propertyId: property.id });
+  const renderProperty = ({ item }: { item: any }) => {
+    // For now, show placeholder completion data since rooms aren't fetched
+    // TODO: Update query to include rooms when server supports it
+    const totalRooms = item.rooms?.length || 0;
+    const completedRooms =
+      item.rooms?.filter((room: any) => {
+        const itemCount = room.items?.length || 0;
+        const completedItemCount =
+          room.items?.filter((item: any) => item.status === 'ACTIVE').length || 0;
+        return itemCount > 0 && completedItemCount === itemCount;
+      }).length || 0;
+    const completionPercentage =
+      totalRooms > 0 ? Math.round((completedRooms / totalRooms) * 100) : 0;
+
+    return (
+      <Card style={styles.propertyCard} onPress={() => handlePropertySelect(item)}>
+        <View style={styles.imageContainer}>
+          <Image
+            source={require('../../assets/sample-property.png')}
+            style={styles.propertyImage}
+            resizeMode="cover"
+          />
+          {/* Completion overlay */}
+          <View style={styles.completionOverlay}>
+            <Chip
+              mode="flat"
+              textStyle={styles.completionChipText}
+              style={[
+                styles.completionChip,
+                {
+                  backgroundColor:
+                    completionPercentage === 100
+                      ? '#4caf50'
+                      : completionPercentage > 50
+                        ? '#ff9800'
+                        : '#f44336',
+                },
+              ]}
+            >
+              {completionPercentage === 100 ? '✅ Complete' : `${completionPercentage}%`}
+            </Chip>
+          </View>
+        </View>
+        <Card.Content style={styles.cardContent}>
+          <Title style={styles.propertyName}>{item.name}</Title>
+          <Paragraph style={styles.propertyAddress}>📍 {item.address}</Paragraph>
+          {/* Note: description field doesn't exist in the current Property type */}
+          {/* <Paragraph style={styles.propertyDescription}>{item.description}</Paragraph> */}
+
+          {/* Completion progress section */}
+          <View style={styles.completionSection}>
+            <View style={styles.completionStats}>
+              <Text variant="bodyMedium" style={styles.completionText}>
+                🏠 {completedRooms}/{totalRooms} rooms completed
+              </Text>
+              <Text variant="bodySmall" style={styles.completionPercentage}>
+                {completionPercentage}% complete
+              </Text>
+            </View>
+            <ProgressBar
+              progress={completionPercentage / 100}
+              color={
+                completionPercentage === 100
+                  ? '#4caf50'
+                  : completionPercentage > 50
+                    ? '#ff9800'
+                    : '#f44336'
+              }
+              style={styles.progressBar}
+            />
+          </View>
+        </Card.Content>
+      </Card>
+    );
   };
 
-  const renderProperty = ({ item }: { item: PropertyWithCompletion }) => (
-    <Card style={styles.propertyCard} onPress={() => handlePropertySelect(item)}>
-      <View style={styles.imageContainer}>
-        <Image
-          source={require('../../assets/sample-property.png')}
-          style={styles.propertyImage}
-          resizeMode="cover"
-        />
-        {/* Completion overlay */}
-        <View style={styles.completionOverlay}>
-          <Chip
-            mode="flat"
-            textStyle={styles.completionChipText}
-            style={[
-              styles.completionChip,
-              {
-                backgroundColor:
-                  item.completionPercentage === 100
-                    ? '#4caf50'
-                    : item.completionPercentage > 50
-                      ? '#ff9800'
-                      : '#f44336',
-              },
-            ]}
-          >
-            {item.completionPercentage === 100 ? '✅ Complete' : `${item.completionPercentage}%`}
-          </Chip>
-        </View>
-      </View>
-      <Card.Content style={styles.cardContent}>
-        <Title style={styles.propertyName}>{item.name}</Title>
-        <Paragraph style={styles.propertyAddress}>📍 {item.address}</Paragraph>
-        <Paragraph style={styles.propertyDescription}>{item.description}</Paragraph>
-
-        {/* Completion progress section */}
-        <View style={styles.completionSection}>
-          <View style={styles.completionStats}>
-            <Text variant="bodyMedium" style={styles.completionText}>
-              🏠 {item.completedRooms}/{item.totalRooms} rooms completed
-            </Text>
-            <Text variant="bodySmall" style={styles.completionPercentage}>
-              {item.completionPercentage}% complete
-            </Text>
-          </View>
-          <ProgressBar
-            progress={item.completionPercentage / 100}
-            color={
-              item.completionPercentage === 100
-                ? '#4caf50'
-                : item.completionPercentage > 50
-                  ? '#ff9800'
-                  : '#f44336'
-            }
-            style={styles.progressBar}
-          />
-        </View>
-      </Card.Content>
-    </Card>
-  );
-
-  if (isLoading) {
+  // Loading state
+  if (loading) {
+    console.log('PropertySelectionScreen: Showing loading state');
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <Text variant="headlineMedium">Loading Properties...</Text>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text variant="headlineMedium" style={styles.loadingText}>
+            Loading Properties...
+          </Text>
+          <Text variant="bodyMedium" style={{ marginTop: 10, color: '#666' }}>
+            Debug: Loading from GraphQL...
+          </Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  if (properties.length === 0) {
+  // Error state
+  if (error) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.emptyContainer}>
-          <Text variant="headlineMedium">No Properties Found</Text>
+          <Text variant="headlineMedium" style={styles.errorText}>
+            Error Loading Properties
+          </Text>
+          <Text variant="bodyLarge" style={styles.emptyText}>
+            Failed to load properties. Please check your connection and try again.
+          </Text>
+          <Button mode="contained" onPress={() => refetch()} style={styles.retryButton}>
+            Retry
+          </Button>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // No properties found
+  if (displayProperties.length === 0) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.emptyContainer}>
+          <Text variant="headlineMedium" style={styles.emptyTitle}>
+            No Properties Found
+          </Text>
           <Text variant="bodyLarge" style={styles.emptyText}>
             Add some properties to get started with inventory validation
           </Text>
-          <Button mode="contained" onPress={loadProperties} style={styles.retryButton}>
-            Retry
+          <Button mode="contained" onPress={() => refetch()} style={styles.retryButton}>
+            Refresh
           </Button>
         </View>
       </SafeAreaView>
@@ -206,12 +238,16 @@ export const PropertySelectionScreen: React.FC<PropertySelectionScreenProps> = (
         <Text variant="bodyLarge" style={styles.subtitle}>
           Select or scan a property to validate its inventory
         </Text>
+        <Text variant="bodySmall" style={{ color: '#888', marginTop: 5 }}>
+          Debug: GraphQL Data - {properties.length} properties, Loading: {loading.toString()},
+          Error: {error ? 'Yes' : 'No'}
+        </Text>
       </View>
 
       <FlatList
-        data={properties}
+        data={displayProperties}
         renderItem={renderProperty}
-        keyExtractor={item => item.id}
+        keyExtractor={(item: any) => item.id}
         contentContainerStyle={styles.propertiesList}
         showsVerticalScrollIndicator={false}
       />
@@ -298,11 +334,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
+  loadingText: {
+    marginTop: 16,
+    color: '#666',
+  },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+  },
+  emptyTitle: {
+    color: '#333',
+    marginBottom: 12,
+  },
+  errorText: {
+    color: '#d32f2f',
+    marginBottom: 12,
   },
   emptyText: {
     color: '#666',

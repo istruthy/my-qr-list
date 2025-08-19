@@ -11,44 +11,121 @@ import {
   IconButton,
   ProgressBar,
   Chip,
+  ActivityIndicator,
 } from 'react-native-paper';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useQuery, useMutation } from '@apollo/client';
+import { GET_PROPERTY, GET_PROPERTIES } from '../graphql/queries';
+import { CREATE_ROOM } from '../graphql/mutations';
 import { PropertiesStackParamList } from '../types';
 import { ActionButton } from '../components/ActionButton';
 import { generateUUID } from '../utils/uuid';
-import { ListWithCompletion } from '../db/schema';
+import { Property, Room, CreateRoomInput, ItemStatus } from '../graphql/types';
+import { useGraphQL } from '../hooks/useGraphQL';
 
 type PropertyDetailsScreenProps = {
   navigation: NativeStackNavigationProp<PropertiesStackParamList, 'PropertyDetails'>;
   route: RouteProp<PropertiesStackParamList, 'PropertyDetails'>;
 };
 
-type Room = ListWithCompletion;
-
 export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
   navigation,
   route,
 }) => {
   const { propertyId } = route.params;
-  const [property, setProperty] = useState<any>(null);
-  const [rooms, setRooms] = useState<Room[]>([]);
+  console.log('PropertyDetailsScreen: Received propertyId from route.params:', propertyId);
+  console.log('PropertyDetailsScreen: Full route.params:', route.params);
+  console.log(
+    'PropertyDetailsScreen: Note: Rooms functionality now working with aliased lists data'
+  );
   const [showAddModal, setShowAddModal] = useState(false);
   const [newRoomName, setNewRoomName] = useState('');
   const [newRoomDescription, setNewRoomDescription] = useState('');
   const theme = useTheme();
 
+  const { useSafeQuery, useSafeMutation } = useGraphQL();
+  console.log(' == property id', propertyId);
+  // GraphQL query to fetch property with rooms
+  const { data, loading, error, refetch } = useSafeQuery<{ property: Property }, { id: string }>(
+    GET_PROPERTY,
+    {
+      variables: { id: propertyId },
+      onError: error => {
+        console.error('Error fetching property:', error);
+        Alert.alert('Error', 'Failed to load property data. Please try again.');
+      },
+    }
+  );
+
+  console.log(
+    'PropertyDetailsScreen: GraphQL query state - loading:',
+    loading,
+    'error:',
+    error,
+    'data:',
+    data
+  );
+
+  // Debug: Log the actual GraphQL query being sent
+  console.log('PropertyDetailsScreen: GraphQL query:', GET_PROPERTY.loc?.source.body);
+  console.log('PropertyDetailsScreen: Query variables:', { id: propertyId });
+  console.log('PropertyDetailsScreen: Raw data response:', JSON.stringify(data, null, 2));
+
+  // Test query to see if we can fetch any properties at all
+  const { data: allPropertiesData } = useSafeQuery<{ properties: Property[] }, {}>(GET_PROPERTIES, {
+    onError: error => {
+      console.error('Error fetching all properties:', error);
+    },
+  });
+  console.log('PropertyDetailsScreen: All properties test query result:', allPropertiesData);
+
+  // GraphQL mutation to create a new room
+  const [createRoom, { loading: isCreatingRoom }] = useSafeMutation<
+    { createRoom: Room },
+    { input: CreateRoomInput }
+  >(CREATE_ROOM, {
+    onCompleted: data => {
+      console.log('Room created successfully:', data);
+      setShowAddModal(false);
+      setNewRoomName('');
+      setNewRoomDescription('');
+      // Refetch the property data to get the updated room list
+      refetch();
+      Alert.alert('Success', 'Room created successfully!');
+    },
+    onError: error => {
+      console.error('Error creating room:', error);
+      Alert.alert('Error', 'Failed to create room. Please try again.');
+    },
+  });
+
+  // Extract property and rooms from GraphQL response
+  const property = data?.property;
+  const rooms = data?.property?.rooms || [];
+
   // Add header button for adding rooms
   React.useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <IconButton
-          icon="plus"
-          onPress={() => setShowAddModal(true)}
-          style={{ marginRight: 8 }}
-          iconColor="#fff"
-        />
+        <View style={{ flexDirection: 'row' }}>
+          <IconButton
+            icon="refresh"
+            onPress={() => {
+              console.log('PropertyDetailsScreen: Manual refetch triggered');
+              refetch();
+            }}
+            style={{ marginRight: 4 }}
+            iconColor="#fff"
+          />
+          <IconButton
+            icon="plus"
+            onPress={() => setShowAddModal(true)}
+            style={{ marginRight: 8 }}
+            iconColor="#fff"
+          />
+        </View>
       ),
     });
   }, [navigation]);
@@ -56,111 +133,25 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
   console.log('PropertyDetailsScreen: Component rendered with propertyId:', propertyId);
   console.log('PropertyDetailsScreen: Current state - property:', property, 'rooms:', rooms);
 
-  useEffect(() => {
-    console.log('PropertyDetailsScreen: useEffect triggered');
-    const loadData = async () => {
-      await loadPropertyAndRooms();
-    };
-    loadData();
-  }, [propertyId]);
-
-  const loadPropertyAndRooms = useCallback(async () => {
-    console.log('PropertyDetailsScreen: Loading data for propertyId:', propertyId);
-
-    // TODO: Load from database when ready
-    // For now, we'll use mock data
-    const mockProperty = {
-      id: propertyId,
-      name: `Property ${propertyId}`,
-      address: `Address for Property ${propertyId}`,
-    };
-    setProperty(mockProperty);
-    console.log('PropertyDetailsScreen: Set property:', mockProperty);
-
-    const mockRooms: Room[] = [
-      {
-        id: '1',
-        name: 'Living Room',
-        description: 'Main living area',
-        propertyId: propertyId,
-        barcode: 'LR001',
-        isCompleted: true,
-        completedAt: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        itemCount: 15,
-        completedItemCount: 15,
-        completionPercentage: 100,
-      },
-      {
-        id: '2',
-        name: 'Kitchen',
-        description: 'Kitchen and dining area',
-        propertyId: propertyId,
-        barcode: 'KT001',
-        isCompleted: false,
-        completedAt: null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        itemCount: 23,
-        completedItemCount: 18,
-        completionPercentage: 78,
-      },
-      {
-        id: '3',
-        name: 'Master Bedroom',
-        description: 'Primary bedroom',
-        propertyId: propertyId,
-        barcode: 'MB001',
-        isCompleted: false,
-        completedAt: null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        itemCount: 12,
-        completedItemCount: 0,
-        completionPercentage: 0,
-      },
-    ];
-    console.log('PropertyDetailsScreen: About to set rooms:', mockRooms);
-    setRooms(mockRooms);
-    console.log('PropertyDetailsScreen: Set rooms called, current state should update');
-  }, [propertyId]);
-
-  // Calculate overall property completion
-  const propertyCompletion = {
-    totalRooms: rooms.length,
-    completedRooms: rooms.filter(room => room.isCompleted).length,
-    completionPercentage:
-      rooms.length > 0
-        ? Math.round((rooms.filter(room => room.isCompleted).length / rooms.length) * 100)
-        : 0,
-  };
-
   const handleAddRoom = async () => {
     if (!newRoomName.trim()) {
       Alert.alert('Error', 'Please enter a room name');
       return;
     }
 
-    const newRoom: Room = {
-      id: await generateUUID(),
+    const roomInput: CreateRoomInput = {
       name: newRoomName.trim(),
-      description: newRoomDescription.trim() || null,
+      description: newRoomDescription.trim() || undefined,
       propertyId: propertyId,
-      barcode: null,
-      isCompleted: false,
-      completedAt: null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      itemCount: 0,
-      completedItemCount: 0,
-      completionPercentage: 0,
     };
 
-    setRooms([...rooms, newRoom]);
-    setShowAddModal(false);
-    setNewRoomName('');
-    setNewRoomDescription('');
+    try {
+      await createRoom({
+        variables: { input: roomInput },
+      });
+    } catch (error) {
+      // Error is handled in onError callback
+    }
   };
 
   const handleSelectRoom = (room: Room) => {
@@ -177,7 +168,7 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
       mode: 'room',
       propertyId: propertyId,
       onRoomScanned: (roomId: string) => {
-        const room = rooms.find(r => r.id === roomId);
+        const room = rooms.find((r: Room) => r.id === roomId);
         if (room) {
           navigation.navigate('RoomDetails', {
             roomId: room.id,
@@ -189,8 +180,41 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
     });
   };
 
-  const renderRoom = ({ item }: { item: Room }) => {
+  // Calculate overall property completion
+  const propertyCompletion = {
+    totalRooms: rooms.length,
+    completedRooms: rooms.filter((room: any) => {
+      const itemCount = room.items?.length || 0;
+      const completedItemCount =
+        room.items?.filter((item: any) => item.isCompleted === true).length || 0;
+      return itemCount > 0 && completedItemCount === itemCount;
+    }).length,
+    completionPercentage:
+      rooms.length > 0
+        ? Math.round(
+            (rooms.filter((room: any) => {
+              const itemCount = room.items?.length || 0;
+              const completedItemCount =
+                room.items?.filter((item: any) => item.isCompleted === true).length || 0;
+              return itemCount > 0 && completedItemCount === itemCount;
+            }).length /
+              rooms.length) *
+              100
+          )
+        : 0,
+  };
+
+  const renderRoom = ({ item }: { item: any }) => {
     console.log('PropertyDetailsScreen: Rendering room:', item);
+
+    // Calculate completion percentage for the room
+    const itemCount = item.items?.length || 0;
+    const completedItemCount =
+      item.items?.filter((item: any) => item.isCompleted === true).length || 0;
+    const completionPercentage =
+      itemCount > 0 ? Math.round((completedItemCount / itemCount) * 100) : 0;
+    const isCompleted = completionPercentage === 100;
+
     return (
       <Card style={styles.roomCard} onPress={() => handleSelectRoom(item)}>
         <Card.Content>
@@ -205,15 +229,15 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
               style={[
                 styles.completionChip,
                 {
-                  backgroundColor: item.isCompleted
+                  backgroundColor: isCompleted
                     ? '#4caf50'
-                    : item.completionPercentage > 50
+                    : completionPercentage > 50
                       ? '#ff9800'
                       : '#f44336',
                 },
               ]}
             >
-              {item.isCompleted ? '✅ Complete' : `${item.completionPercentage}%`}
+              {isCompleted ? '✅ Complete' : `${completionPercentage}%`}
             </Chip>
           </View>
 
@@ -227,21 +251,15 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
           <View style={styles.completionSection}>
             <View style={styles.completionStats}>
               <Text variant="bodyMedium" style={styles.completionText}>
-                📦 {item.completedItemCount}/{item.itemCount} items verified
+                📦 {completedItemCount}/{itemCount} items completed
               </Text>
               <Text variant="bodySmall" style={styles.completionPercentage}>
-                {item.completionPercentage}% complete
+                {completionPercentage}% complete
               </Text>
             </View>
             <ProgressBar
-              progress={item.completionPercentage / 100}
-              color={
-                item.isCompleted
-                  ? '#4caf50'
-                  : item.completionPercentage > 50
-                    ? '#ff9800'
-                    : '#f44336'
-              }
+              progress={completionPercentage / 100}
+              color={isCompleted ? '#4caf50' : completionPercentage > 50 ? '#ff9800' : '#f44336'}
               style={styles.progressBar}
             />
           </View>
@@ -249,12 +267,12 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
           <View style={styles.roomInfo}>
             {item.barcode && (
               <Text variant="bodySmall" style={styles.barcodeInfo}>
-                🏷️ Has QR Code
+                📱 Barcode: {item.barcode}
               </Text>
             )}
-            {item.isCompleted && item.completedAt && (
+            {isCompleted && (
               <Text variant="bodySmall" style={styles.completedDate}>
-                ✅ Completed: {new Date(item.completedAt as string).toLocaleDateString()}
+                ✅ Completed: {new Date(item.updatedAt).toLocaleDateString()}
               </Text>
             )}
           </View>
@@ -281,12 +299,44 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
     );
   };
 
+  // Loading state
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={styles.loadingText}>Loading property...</Text>
+          <Text style={styles.loadingSubtext}>Property ID: {propertyId}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Error loading property</Text>
+          <Text style={styles.loadingSubtext}>Please try again</Text>
+          <Button mode="contained" onPress={() => refetch()} style={styles.testButton}>
+            Retry
+          </Button>
+        </View>
+      </View>
+    );
+  }
+
+  // No property found
   if (!property) {
     return (
       <View style={styles.container}>
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading property...</Text>
+          <Text style={styles.loadingText}>Property not found</Text>
           <Text style={styles.loadingSubtext}>Property ID: {propertyId}</Text>
+          <Button mode="contained" onPress={() => navigation.goBack()} style={styles.testButton}>
+            Go Back
+          </Button>
         </View>
       </View>
     );
@@ -332,9 +382,9 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
 
       {rooms.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyStateText}>No rooms yet</Text>
+          <Text style={styles.emptyStateText}>No rooms found</Text>
           <Text style={styles.emptyStateSubtext}>
-            Add rooms to organize your inventory by location
+            This property doesn't have any rooms yet. Add rooms to organize your inventory.
           </Text>
           <ActionButton
             label="Add First Room"
@@ -346,7 +396,7 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
         <FlatList
           data={rooms}
           renderItem={renderRoom}
-          keyExtractor={item => item.id}
+          keyExtractor={(item: any) => item.id}
           contentContainerStyle={styles.roomsList}
           showsVerticalScrollIndicator={false}
         />
@@ -367,6 +417,7 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
             style={styles.input}
             mode="outlined"
             placeholder="e.g., Living Room, Kitchen"
+            disabled={isCreatingRoom}
           />
 
           <TextInput
@@ -378,6 +429,7 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
             placeholder="Brief description of the room"
             multiline
             numberOfLines={3}
+            disabled={isCreatingRoom}
           />
 
           <View style={styles.modalButtons}>
@@ -386,8 +438,14 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
               onPress={() => setShowAddModal(false)}
               variant="outline"
               style={styles.modalButton}
+              disabled={isCreatingRoom}
             />
-            <ActionButton label="Add Room" onPress={handleAddRoom} style={styles.modalButton} />
+            <ActionButton
+              label={isCreatingRoom ? 'Creating...' : 'Add Room'}
+              onPress={handleAddRoom}
+              style={styles.modalButton}
+              disabled={isCreatingRoom}
+            />
           </View>
         </Modal>
       </Portal>
