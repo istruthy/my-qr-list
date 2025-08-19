@@ -50,6 +50,11 @@ export const GET_PROPERTIES = gql`
       address
       createdAt
       updatedAt
+      rooms: lists {
+        items {
+          isCompleted
+        }
+      }
     }
   }
 `;

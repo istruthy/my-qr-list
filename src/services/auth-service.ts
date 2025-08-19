@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User, AuthResponse } from '../graphql/types';
 
-const API_BASE_URL = 'http://localhost:3000/api';
+const API_BASE_URL = 'https://host-inventory-sync.netlify.app/api';
 
 export interface LoginCredentials {
   email: string;

@@ -17,6 +17,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_LIST } from '../graphql/queries';
+import { UPDATE_ITEM_COMPLETION } from '../graphql/mutations';
 import { PropertiesStackParamList } from '../types';
 import { ActionButton } from '../components/ActionButton';
 import { generateUUID } from '../utils/uuid';
@@ -66,6 +67,17 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
     onError: error => {
       console.error('Error fetching room data:', error);
       Alert.alert('Error', 'Failed to load room data. Please try again.');
+    },
+  });
+
+  // GraphQL mutation to update item completion status
+  const [updateItemCompletion, { loading: updateLoading }] = useMutation(UPDATE_ITEM_COMPLETION, {
+    onError: error => {
+      console.error('Error updating item completion:', error);
+      Alert.alert('Error', 'Failed to update item status. Please try again.');
+    },
+    onCompleted: data => {
+      console.log('Item completion updated successfully:', data);
     },
   });
 
@@ -209,30 +221,94 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
     });
   };
 
-  const handleVerifyItem = (item: InventoryItem) => {
-    const updatedItems = inventoryItems.map(invItem =>
-      invItem.id === item.id
-        ? {
-            ...invItem,
-            actualQuantity: item.quantity,
-            status: 'verified' as const,
-          }
-        : invItem
-    );
-    setInventoryItems(updatedItems);
+  const handleVerifyItem = async (item: InventoryItem) => {
+    try {
+      // Update the item completion status in the database
+      await updateItemCompletion({
+        variables: {
+          id: item.id,
+          isCompleted: true,
+        },
+      });
+
+      // Update local state after successful database update
+      const updatedItems = inventoryItems.map(invItem =>
+        invItem.id === item.id
+          ? {
+              ...invItem,
+              actualQuantity: item.quantity,
+              status: 'verified' as const,
+              isCompleted: true,
+            }
+          : invItem
+      );
+      setInventoryItems(updatedItems);
+
+      console.log(`Item "${item.name}" marked as completed in database`);
+    } catch (error) {
+      console.error('Failed to update item completion:', error);
+      Alert.alert('Error', 'Failed to update item status. Please try again.');
+    }
   };
 
-  const handleQuantityUpdate = (item: InventoryItem, newQuantity: number) => {
-    const updatedItems = inventoryItems.map(invItem =>
-      invItem.id === item.id
-        ? {
-            ...invItem,
-            actualQuantity: newQuantity,
-            status: 'verified' as const,
-          }
-        : invItem
-    );
-    setInventoryItems(updatedItems);
+  const handleUnverifyItem = async (item: InventoryItem) => {
+    try {
+      // Update the item completion status in the database
+      await updateItemCompletion({
+        variables: {
+          id: item.id,
+          isCompleted: false,
+        },
+      });
+
+      // Update local state after successful database update
+      const updatedItems = inventoryItems.map(invItem =>
+        invItem.id === item.id
+          ? {
+              ...invItem,
+              status: 'pending' as const,
+              isCompleted: false,
+              actualQuantity: undefined,
+            }
+          : invItem
+      );
+      setInventoryItems(updatedItems);
+
+      console.log(`Item "${item.name}" marked as incomplete in database`);
+    } catch (error) {
+      console.error('Failed to update item completion:', error);
+      Alert.alert('Error', 'Failed to update item status. Please try again.');
+    }
+  };
+
+  const handleQuantityUpdate = async (item: InventoryItem, newQuantity: number) => {
+    try {
+      // Update the item completion status in the database
+      await updateItemCompletion({
+        variables: {
+          id: item.id,
+          isCompleted: true,
+        },
+      });
+
+      // Update local state after successful database update
+      const updatedItems = inventoryItems.map(invItem =>
+        invItem.id === item.id
+          ? {
+              ...invItem,
+              actualQuantity: newQuantity,
+              status: 'verified' as const,
+              isCompleted: true,
+            }
+          : invItem
+      );
+      setInventoryItems(updatedItems);
+
+      console.log(`Item "${item.name}" quantity updated and marked as completed in database`);
+    } catch (error) {
+      console.error('Failed to update item completion:', error);
+      Alert.alert('Error', 'Failed to update item status. Please try again.');
+    }
   };
 
   const handleDamageReport = (item: InventoryItem) => {
@@ -242,22 +318,39 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
     setDamageNotes('');
   };
 
-  const submitDamageReport = () => {
+  const submitDamageReport = async () => {
     if (!selectedItem) return;
 
-    const updatedItems = inventoryItems.map(invItem =>
-      invItem.id === selectedItem.id
-        ? {
-            ...invItem,
-            status: 'damaged' as const,
-            damageReason,
-            notes: damageNotes.trim() || undefined,
-          }
-        : invItem
-    );
-    setInventoryItems(updatedItems);
-    setShowDamageModal(false);
-    setSelectedItem(null);
+    try {
+      // Mark the item as not completed in the database
+      await updateItemCompletion({
+        variables: {
+          id: selectedItem.id,
+          isCompleted: false,
+        },
+      });
+
+      // Update local state after successful database update
+      const updatedItems = inventoryItems.map(invItem =>
+        invItem.id === selectedItem.id
+          ? {
+              ...invItem,
+              status: 'damaged' as const,
+              damageReason,
+              notes: damageNotes.trim() || undefined,
+              isCompleted: false,
+            }
+          : invItem
+      );
+      setInventoryItems(updatedItems);
+      setShowDamageModal(false);
+      setSelectedItem(null);
+
+      console.log(`Item "${selectedItem.name}" marked as damaged in database`);
+    } catch (error) {
+      console.error('Failed to update item completion:', error);
+      Alert.alert('Error', 'Failed to update item status. Please try again.');
+    }
   };
 
   const showRoomCompletionModal = () => {
@@ -362,8 +455,22 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
               onPress={() => handleVerifyItem(item)}
               style={styles.actionButton}
               icon="check"
+              loading={updateLoading}
+              disabled={updateLoading}
             >
-              Verify
+              {updateLoading ? 'Updating...' : 'Verify'}
+            </Button>
+          )}
+          {item.status === 'verified' && (
+            <Button
+              mode="outlined"
+              onPress={() => handleUnverifyItem(item)}
+              style={styles.actionButton}
+              icon="undo"
+              loading={updateLoading}
+              disabled={updateLoading}
+            >
+              {updateLoading ? 'Updating...' : 'Unverify'}
             </Button>
           )}
           <Button
@@ -379,7 +486,7 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
     </Card>
   );
 
-  if (isLoading || graphqlLoading) {
+  if (isLoading || graphqlLoading || updateLoading) {
     return (
       <View style={styles.container}>
         <View style={styles.loadingContainer}>

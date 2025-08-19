@@ -4,7 +4,7 @@ import { onError } from '@apollo/client/link/error';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const httpLink = createHttpLink({
-  uri: 'http://localhost:3000/api/graphql',
+  uri: 'https://host-inventory-sync.netlify.app/api/graphql',
 });
 
 const authLink = setContext(async (_, { headers }) => {

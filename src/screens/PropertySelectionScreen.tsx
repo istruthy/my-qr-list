@@ -53,24 +53,8 @@ export const PropertySelectionScreen: React.FC<PropertySelectionScreenProps> = (
   console.log('PropertySelectionScreen: Error state:', error);
   console.log('PropertySelectionScreen: Raw data:', data);
 
-  // Fallback data for debugging - remove this once GraphQL is working
-  const fallbackProperties = [
-    {
-      id: 'debug-1',
-      name: 'Debug Property 1',
-      address: '123 Debug St, Test City',
-      rooms: [],
-    },
-    {
-      id: 'debug-2',
-      name: 'Debug Property 2',
-      address: '456 Debug Ave, Test City',
-      rooms: [],
-    },
-  ];
-
-  // Use fallback data if GraphQL fails
-  const displayProperties = properties.length > 0 ? properties : fallbackProperties;
+  // Use GraphQL properties directly
+  const displayProperties = properties;
 
   const handlePropertySelect = (property: Property) => {
     console.log(
@@ -98,18 +82,43 @@ export const PropertySelectionScreen: React.FC<PropertySelectionScreenProps> = (
   };
 
   const renderProperty = ({ item }: { item: any }) => {
-    // For now, show placeholder completion data since rooms aren't fetched
-    // TODO: Update query to include rooms when server supports it
-    const totalRooms = item.rooms?.length || 0;
-    const completedRooms =
-      item.rooms?.filter((room: any) => {
-        const itemCount = room.items?.length || 0;
-        const completedItemCount =
-          room.items?.filter((item: any) => item.status === 'ACTIVE').length || 0;
-        return itemCount > 0 && completedItemCount === itemCount;
-      }).length || 0;
+    // Calculate completion percentage using the GraphQL data
+    const rooms = item.rooms || [];
+    const totalRooms = rooms.length;
+
+    // Calculate completion for each room based on its items
+    const roomCompletions = rooms.map((room: any) => {
+      const items = room.items || [];
+      const totalItems = items.length;
+
+      if (totalItems === 0) return { completed: false, percentage: 0 };
+
+      const completedItems = items.filter((item: any) => item.isCompleted === true).length;
+      const percentage = Math.round((completedItems / totalItems) * 100);
+      const completed = completedItems === totalItems;
+
+      return { completed, percentage, totalItems, completedItems };
+    });
+
+    // Calculate overall property completion
+    const completedRooms = roomCompletions.filter((room: any) => room.completed).length;
+    const totalItems = roomCompletions.reduce((sum: number, room: any) => sum + room.totalItems, 0);
+    const completedItems = roomCompletions.reduce(
+      (sum: number, room: any) => sum + room.completedItems,
+      0
+    );
+
     const completionPercentage =
-      totalRooms > 0 ? Math.round((completedRooms / totalRooms) * 100) : 0;
+      totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+
+    console.log(`Property "${item.name}" completion:`, {
+      totalRooms,
+      completedRooms,
+      totalItems,
+      completedItems,
+      completionPercentage,
+      roomCompletions,
+    });
 
     return (
       <Card style={styles.propertyCard} onPress={() => handlePropertySelect(item)}>
@@ -153,7 +162,12 @@ export const PropertySelectionScreen: React.FC<PropertySelectionScreenProps> = (
                 🏠 {completedRooms}/{totalRooms} rooms completed
               </Text>
               <Text variant="bodySmall" style={styles.completionPercentage}>
-                {completionPercentage}% complete
+                📦 {completedItems}/{totalItems} items completed
+              </Text>
+            </View>
+            <View style={styles.completionStats}>
+              <Text variant="bodySmall" style={styles.completionPercentage}>
+                Overall: {completionPercentage}% complete
               </Text>
             </View>
             <ProgressBar
@@ -242,6 +256,15 @@ export const PropertySelectionScreen: React.FC<PropertySelectionScreenProps> = (
           Debug: GraphQL Data - {properties.length} properties, Loading: {loading.toString()},
           Error: {error ? 'Yes' : 'No'}
         </Text>
+        {properties.length > 0 && (
+          <Text variant="bodySmall" style={{ color: '#888', marginTop: 2 }}>
+            Debug: First property rooms: {properties[0]?.rooms?.length || 0}, items:{' '}
+            {properties[0]?.rooms?.reduce(
+              (sum: number, room: any) => sum + (room.items?.length || 0),
+              0
+            ) || 0}
+          </Text>
+        )}
       </View>
 
       <FlatList

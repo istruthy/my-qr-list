@@ -56,7 +56,10 @@ export interface UpdateRoomInput {
 export interface Item extends BaseEntity {
   name: string;
   description?: string;
-  status: ItemStatus;
+  quantity: number;
+  condition?: string;
+  estimatedValue?: number;
+  isCompleted: boolean;
   roomId: string;
 }
 
@@ -77,7 +80,10 @@ export interface CreateItemInput {
 export interface UpdateItemInput {
   name?: string;
   description?: string;
-  status?: ItemStatus;
+  quantity?: number;
+  condition?: string;
+  estimatedValue?: number;
+  isCompleted?: boolean;
 }
 
 // List types

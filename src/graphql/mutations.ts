@@ -173,7 +173,10 @@ export const UPDATE_ITEM = gql`
       id
       name
       description
-      status
+      quantity
+      condition
+      estimatedValue
+      isCompleted
       roomId
       createdAt
       updatedAt
@@ -184,5 +187,15 @@ export const UPDATE_ITEM = gql`
 export const DELETE_ITEM = gql`
   mutation DeleteItem($id: ID!) {
     deleteItem(id: $id)
+  }
+`;
+
+export const UPDATE_ITEM_COMPLETION = gql`
+  mutation UpdateItemCompletion($id: ID!, $isCompleted: Boolean!) {
+    updateItem(id: $id, input: { isCompleted: $isCompleted }) {
+      id
+      isCompleted
+      updatedAt
+    }
   }
 `;
