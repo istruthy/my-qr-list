@@ -21,6 +21,7 @@ import { GET_PROPERTIES } from '../graphql/queries';
 import { MainTabParamList, PropertiesStackParamList } from '../types';
 import { Property } from '../graphql/types';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { FeatureFlagExample } from '../components/FeatureFlagExample';
 
 const { width: screenWidth } = Dimensions.get('window');
 const CARD_WIDTH = screenWidth * 0.9;
