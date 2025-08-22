@@ -19,7 +19,7 @@ export interface List {
 
 export type PropertiesStackParamList = {
   PropertySelection: undefined;
-  PropertyDetails: { propertyId: string };
+  PropertyDetails: { propertyId: string; propertyName: string };
   ListDetails: { listId: string; listName: string; propertyId: string };
   AddItem: { listId: string; propertyId: string };
 };

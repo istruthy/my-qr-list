@@ -1,5 +1,16 @@
-import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Dimensions, FlatList, Image, Alert } from 'react-native';
+import React, { useEffect, useState, useLayoutEffect } from 'react';
+import {
+  View,
+  StyleSheet,
+  Dimensions,
+  FlatList,
+  Image,
+  Alert,
+  Pressable,
+  Animated,
+  ScrollView,
+  RefreshControl,
+} from 'react-native';
 import {
   Text,
   Button,
@@ -14,7 +25,7 @@ import {
   ActivityIndicator,
 } from 'react-native-paper';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import { CompositeNavigationProp } from '@react-navigation/native';
+import { CompositeNavigationProp, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAccountContext } from '../contexts/AccountContext';
 import { useProperties } from '../hooks/useGraphQL';
@@ -24,7 +35,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { FeatureFlagExample } from '../components/FeatureFlagExample';
 
 const { width: screenWidth } = Dimensions.get('window');
-const CARD_WIDTH = screenWidth * 0.9;
+const CARD_WIDTH = screenWidth * 0.8; // Slightly smaller to show part of next card
+const CARD_SPACING = 16; // Space between cards
 
 type PropertySelectionScreenProps = {
   navigation: CompositeNavigationProp<
@@ -35,11 +47,32 @@ type PropertySelectionScreenProps = {
 
 export const PropertySelectionScreen: React.FC<PropertySelectionScreenProps> = ({ navigation }) => {
   const theme = useTheme();
+  const scrollY = new Animated.Value(0);
 
   console.log('PropertySelectionScreen: Component rendering...');
 
   // Get account context
   const { currentAccountId, currentAccount, loading: accountLoading } = useAccountContext();
+
+  // Dynamic header visibility based on scroll position
+  useLayoutEffect(() => {
+    const listener = scrollY.addListener(({ value }) => {
+      // Show header when scrolling down, hide when at top
+      const shouldShowHeader = value > 50;
+      navigation.setOptions({
+        headerShown: shouldShowHeader,
+      });
+    });
+
+    // Initially hide the header
+    navigation.setOptions({
+      headerShown: false,
+    });
+
+    return () => {
+      scrollY.removeListener(listener);
+    };
+  }, [navigation, scrollY]);
 
   // Debug logging for account context
   console.log('PropertySelectionScreen: Account Context Debug:');
@@ -49,6 +82,36 @@ export const PropertySelectionScreen: React.FC<PropertySelectionScreenProps> = (
 
   // GraphQL query to fetch properties for the current account
   const { data, loading, error, refetch } = useProperties();
+
+  // State for pull-to-refresh
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Automatically refetch data when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('PropertySelectionScreen: Screen focused, refetching properties...');
+      if (currentAccountId) {
+        refetch();
+      }
+    }, [refetch, currentAccountId])
+  );
+
+  // Handle pull-to-refresh
+  const onRefresh = React.useCallback(async () => {
+    console.log('PropertySelectionScreen: Pull-to-refresh triggered');
+    setRefreshing(true);
+    if (currentAccountId) {
+      try {
+        await refetch();
+        // Add a small delay to show the refresh indicator
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } finally {
+        setRefreshing(false);
+      }
+    } else {
+      setRefreshing(false);
+    }
+  }, [refetch, currentAccountId]);
 
   // Extract properties from GraphQL response
   const properties = data?.properties || [];
@@ -60,6 +123,42 @@ export const PropertySelectionScreen: React.FC<PropertySelectionScreenProps> = (
 
   // Use GraphQL properties directly
   const displayProperties = properties;
+
+  // Add placeholder cards if we have less than 5 properties to ensure scroll animation works
+  const getDisplayProperties = () => {
+    if (properties.length >= 5) {
+      return properties;
+    }
+
+    // Create placeholder properties for testing scroll animation
+    const placeholders = [];
+    const placeholderCount = 5 - properties.length;
+
+    for (let i = 0; i < placeholderCount; i++) {
+      placeholders.push({
+        id: `placeholder-${i}`,
+        name: `Sample Property ${i + 1}`,
+        address: `${100 + i} Sample Street`,
+        description: `This is a placeholder property for testing scroll animations`,
+        barcode: `PLACE${i + 1}`,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        lists: [
+          {
+            id: `placeholder-list-${i}`,
+            name: `Sample List ${i + 1}`,
+            items: [
+              { id: `placeholder-item-${i}-1`, isCompleted: false },
+              { id: `placeholder-item-${i}-2`, isCompleted: true },
+              { id: `placeholder-item-${i}-3`, isCompleted: false },
+            ],
+          },
+        ],
+      });
+    }
+
+    return [...properties, ...placeholders];
+  };
 
   const handlePropertySelect = (property: Property) => {
     console.log(
@@ -78,7 +177,10 @@ export const PropertySelectionScreen: React.FC<PropertySelectionScreenProps> = (
       console.log('PropertySelectionScreen: Attempting navigation with params:', {
         propertyId: property.id,
       });
-      navigation.navigate('PropertyDetails', { propertyId: property.id });
+      navigation.navigate('PropertyDetails', {
+        propertyId: property.id,
+        propertyName: property.name,
+      });
       console.log('PropertySelectionScreen: Navigation successful');
     } catch (error) {
       console.error('PropertySelectionScreen: Navigation failed:', error);
@@ -118,69 +220,69 @@ export const PropertySelectionScreen: React.FC<PropertySelectionScreenProps> = (
     const overallCompleted = totalItems > 0 && completedItems === totalItems;
 
     return (
-      <Card style={[styles.propertyCard, { width: CARD_WIDTH }]} key={item.id}>
-        <Card.Content>
-          <Text variant="titleLarge">{item.name}</Text>
-          <Text variant="bodyMedium">{item.address}</Text>
-
-          {item.description && <Text variant="bodyMedium">{item.description}</Text>}
-
-          <View style={styles.completionSection}>
-            <Text style={styles.completionLabel}>Overall Progress</Text>
-            <ProgressBar
-              progress={overallPercentage / 100}
-              color={overallCompleted ? theme.colors.primary : theme.colors.secondary}
-              style={styles.progressBar}
+      <Pressable onPress={() => handlePropertySelect(item)}>
+        <Card style={[styles.propertyCard, { width: CARD_WIDTH }]} key={item.id}>
+          {/* Property Image with Completion Chip Overlay */}
+          <View style={styles.imageContainer}>
+            <Card.Cover
+              source={require('../../assets/sample-property.png')}
+              style={styles.propertyImage}
+              resizeMode="cover"
             />
-            <Text style={styles.completionText}>
-              {completedItems} of {totalItems} items completed ({overallPercentage}%)
-            </Text>
-          </View>
-
-          {totalLists > 0 && (
-            <View style={styles.listsSection}>
-              <Text style={styles.listsLabel}>Lists ({totalLists})</Text>
-              {lists.map((list: any, index: number) => (
-                <View key={list.id} style={styles.listItem}>
-                  <Text style={styles.listName}>{list.name}</Text>
-                  <Chip
-                    mode="outlined"
-                    textStyle={styles.chipText}
-                    style={[
-                      styles.completionChip,
-                      {
-                        backgroundColor: listCompletions[index]?.completed
-                          ? theme.colors.primaryContainer
-                          : 'transparent',
-                      },
-                    ]}
-                  >
-                    {listCompletions[index]?.percentage || 0}%
-                  </Chip>
-                </View>
-              ))}
+            {/* Completion Chip Overlay */}
+            <View style={styles.completionChipOverlay}>
+              <Chip
+                mode="outlined"
+                textStyle={styles.overlayChipText}
+                style={[
+                  styles.overlayCompletionChip,
+                  {
+                    backgroundColor: overallCompleted
+                      ? theme.colors.primaryContainer
+                      : 'rgba(255, 255, 255, 0.9)',
+                  },
+                ]}
+              >
+                {overallPercentage}%
+              </Chip>
             </View>
-          )}
-
-          <View style={styles.propertyMeta}>
-            <Text style={styles.propertyDate}>
-              Created: {new Date(item.createdAt).toLocaleDateString()}
-            </Text>
-            {item.barcode && <Text style={styles.propertyBarcode}>Barcode: {item.barcode}</Text>}
           </View>
-        </Card.Content>
 
-        <Card.Actions style={styles.cardActions}>
+          <Card.Content style={{ justifyContent: 'space-between', height: 200 }}>
+            <View id="property-info">
+              <Text style={{ marginTop: 10 }} variant="titleLarge">
+                {item.name}
+              </Text>
+              <Text variant="bodyMedium">{item.address}</Text>
+
+              {item.description && <Text variant="bodyMedium">{item.description}</Text>}
+            </View>
+
+            <View id="completion-section" style={styles.completionSection}>
+              <Text style={styles.completionLabel}>Overall Progress</Text>
+              <ProgressBar
+                progress={overallPercentage / 100}
+                color={overallCompleted ? theme.colors.primary : theme.colors.secondary}
+                style={styles.progressBar}
+              />
+              <Text style={styles.completionText}>
+                {completedItems} of {totalItems} items completed ({overallPercentage}%)
+              </Text>
+            </View>
+          </Card.Content>
+
+          {/* <Card.Actions style={styles.cardActions}>
           <Button
             mode="outlined"
             onPress={() => handlePropertySelect(item)}
             style={styles.selectButton}
             labelStyle={styles.buttonLabel}
           >
-            Select Property
+            View Property
           </Button>
-        </Card.Actions>
-      </Card>
+        </Card.Actions> */}
+        </Card>
+      </Pressable>
     );
   };
 
@@ -259,38 +361,101 @@ export const PropertySelectionScreen: React.FC<PropertySelectionScreenProps> = (
 
   return (
     <>
-      {/* <View style={styles.header}>
-        <Title style={styles.headerTitle}>Select a Property</Title>
-        {currentAccount && <Text style={styles.accountName}>{currentAccount.name}</Text>}
-        <Text style={styles.headerSubtitle}>
-          {properties.length} property{properties.length !== 1 ? 's' : ''} found
-        </Text>
-      </View> */}
+      {/* Dynamic Welcome Header - disappears when scrolling */}
+      <Animated.View
+        style={[
+          styles.welcomeHeader,
+          {
+            transform: [
+              {
+                translateY: scrollY.interpolate({
+                  inputRange: [0, 80],
+                  outputRange: [0, -120],
+                  extrapolate: 'clamp',
+                }),
+              },
+            ],
+            opacity: scrollY.interpolate({
+              inputRange: [0, 80],
+              outputRange: [1, 0],
+              extrapolate: 'clamp',
+            }),
+          },
+        ]}
+      >
+        <View style={styles.welcomeHeaderContent}>
+          <Text style={styles.welcomeTitle}>innventry</Text>
+          <Text style={styles.welcomeSubtitle}>
+            Scan a property QR code or select a property to begin
+          </Text>
+          {refreshing && (
+            <View style={styles.refreshIndicator}>
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+              <Text style={styles.refreshText}>Refreshing...</Text>
+            </View>
+          )}
+        </View>
+      </Animated.View>
 
-      <FlatList
-        data={displayProperties}
-        renderItem={renderProperty}
-        keyExtractor={item => item.id}
-        contentContainerStyle={styles.listContainer}
+      {/* Scrollable Content Container */}
+      <ScrollView
+        style={styles.scrollContainer}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+          useNativeDriver: false,
+        })}
+        scrollEventThrottle={8}
         showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyStateText}>No properties found</Text>
-            <Text style={styles.emptyStateSubtext}>Create your first property to get started</Text>
-          </View>
+        bounces={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+          />
         }
-      />
+      >
+        {/* Horizontal Property Cards */}
+        <FlatList
+          data={getDisplayProperties()}
+          horizontal={true}
+          renderItem={renderProperty}
+          keyExtractor={item => item.id}
+          contentContainerStyle={styles.listContainer}
+          showsHorizontalScrollIndicator={false}
+          snapToInterval={CARD_WIDTH + CARD_SPACING}
+          decelerationRate="fast"
+          snapToAlignment="start"
+          scrollEnabled={true} // Disable horizontal scroll since we're in ScrollView
+          getItemLayout={(data, index) => ({
+            length: CARD_WIDTH + CARD_SPACING,
+            offset: (CARD_WIDTH + CARD_SPACING) * index,
+            index,
+          })}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateText}>No properties found</Text>
+              <Text style={styles.emptyStateSubtext}>
+                Create your first property to get started
+              </Text>
+            </View>
+          }
+        />
 
-      {/* <FeatureFlagExample /> */}
-
-      {/* <FAB
-        icon="plus"
-        style={[styles.fab, { backgroundColor: theme.colors.primary }]}
-        onPress={() => {
-          // TODO: Navigate to create property screen when implemented
-          Alert.alert('Coming Soon', 'Create property functionality will be available soon!');
-        }}
-      /> */}
+        {/* Placeholder content to make screen scrollable */}
+        <View style={styles.placeholderContent}>
+          {/* Add some placeholder cards for visual content */}
+          {Array.from({ length: 3 }).map((_, index) => (
+            <View key={index} style={styles.placeholderCard}>
+              <Text style={styles.placeholderCardTitle}>Placeholder Card {index + 1}</Text>
+              <Text style={styles.placeholderCardText}>
+                This is additional content to make the screen scrollable and demonstrate the header
+                animation.
+              </Text>
+            </View>
+          ))}
+        </View>
+      </ScrollView>
     </>
   );
 };
@@ -299,6 +464,116 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  welcomeHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    backgroundColor: 'transparent',
+    paddingTop: 80,
+    paddingBottom: 30,
+    paddingHorizontal: 20,
+    // alignItems: 'center',
+  },
+  welcomeHeaderContent: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+  },
+  welcomeTitle: {
+    fontSize: 40,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
+    textAlign: 'left',
+  },
+  welcomeSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'left',
+    lineHeight: 18,
+    marginRight: 70,
+  },
+  refreshIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 10,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+  },
+  refreshText: {
+    marginLeft: 8,
+    fontSize: 12,
+    color: '#333',
+  },
+  blueHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    backgroundColor: '#2196F3',
+    paddingTop: 60,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  blueHeaderTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+    textAlign: 'center',
+  },
+  placeholderContent: {
+    padding: 20,
+    paddingTop: 0, // Reduced space for the horizontal cards
+  },
+  placeholderTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  placeholderText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 30,
+  },
+  placeholderCard: {
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 12,
+    marginBottom: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  placeholderCardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  placeholderCardText: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+  },
+  scrollContainer: {
+    flex: 1,
+    paddingTop: 170, // Reduced space for the welcome header
   },
   header: {
     padding: 20,
@@ -321,10 +596,11 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   listContainer: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 20,
   },
   propertyCard: {
-    marginBottom: 16,
+    marginRight: CARD_SPACING,
     backgroundColor: 'white',
     borderRadius: 16,
     overflow: 'hidden',
@@ -333,6 +609,34 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
+    height: 400, // Fixed height for consistent card appearance
+  },
+  imageContainer: {
+    position: 'relative',
+    width: '100%',
+    height: 200, // Increased height for better proportion
+  },
+  propertyImage: {
+    height: '100%',
+    width: '100%',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  completionChipOverlay: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 1,
+  },
+  overlayCompletionChip: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'white',
+  },
+  overlayChipText: {
+    color: '#333',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   propertyTitle: {
     fontSize: 24,

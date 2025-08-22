@@ -15,13 +15,11 @@ import {
 } from 'react-native-paper';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_PROPERTY } from '../graphql/queries';
 import { CREATE_LIST } from '../graphql/mutations';
 import { PropertiesStackParamList } from '../types';
 import { ActionButton } from '../components/ActionButton';
-import { generateUUID } from '../utils/uuid';
 import { Property, List, CreateListInput } from '../graphql/types';
 
 type PropertyDetailsScreenProps = {
@@ -33,8 +31,9 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
   navigation,
   route,
 }) => {
-  const { propertyId } = route.params;
+  const { propertyId, propertyName } = route.params;
   console.log('PropertyDetailsScreen: Received propertyId from route.params:', propertyId);
+  console.log('PropertyDetailsScreen: Received propertyName from route.params:', propertyName);
   console.log('PropertyDetailsScreen: Full route.params:', route.params);
   console.log(
     'PropertyDetailsScreen: Note: Lists functionality now working with proper GraphQL data'
@@ -95,9 +94,10 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
   const property = data?.property;
   const lists = data?.property?.lists || [];
 
-  // Add header button for adding lists
+  // Add header button for adding lists and set title immediately
   React.useLayoutEffect(() => {
     navigation.setOptions({
+      title: propertyName || 'Property Details',
       headerRight: () => (
         <View style={{ flexDirection: 'row' }}>
           <IconButton
@@ -118,7 +118,7 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
         </View>
       ),
     });
-  }, [navigation]);
+  }, [navigation, propertyName]);
 
   console.log('PropertyDetailsScreen: Component rendered with propertyId:', propertyId);
   console.log('PropertyDetailsScreen: Current state - property:', property, 'lists:', lists);
@@ -337,10 +337,10 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text variant="headlineMedium" style={styles.title}>
+        {/* <Text variant="headlineMedium" style={styles.title}>
           {property.name}
         </Text>
-        {property.address && <Text style={styles.address}>📍 {property.address}</Text>}
+        {property.address && <Text style={styles.address}>📍 {property.address}</Text>} */}
 
         {/* Property completion overview */}
         <View style={styles.propertyCompletionSection}>
@@ -366,7 +366,7 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
         </View>
 
         <Text variant="bodyMedium" style={styles.subtitle}>
-          Select a list to validate its inventory
+          Select a room to validate its inventory
         </Text>
       </View>
 

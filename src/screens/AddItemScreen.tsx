@@ -89,7 +89,7 @@ export const AddItemScreen: React.FC<AddItemScreenProps> = ({ navigation, route 
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <>
       <View style={styles.header}>
         <Text variant="headlineMedium" style={styles.title}>
           Add Inventory Item
@@ -183,7 +183,7 @@ export const AddItemScreen: React.FC<AddItemScreenProps> = ({ navigation, route 
           </View>
         </Card.Content>
       </Card>
-    </SafeAreaView>
+    </>
   );
 };
 
