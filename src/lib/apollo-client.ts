@@ -4,22 +4,39 @@ import { onError } from '@apollo/client/link/error';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const httpLink = createHttpLink({
-  uri: 'https://host-inventory-sync.netlify.app/api/graphql',
+  uri: 'https://deploy-preview-3--host-inventory-sync.netlify.app/api/graphql',
 });
 
 const authLink = setContext(async (_, { headers }) => {
   try {
-    const token = await AsyncStorage.getItem('authToken');
+    // Get the Supabase access token
+    const supabaseToken = await AsyncStorage.getItem('supabaseAccessToken');
+
+    if (supabaseToken) {
+      console.log('Apollo Client: Using Supabase token for authentication');
+      return {
+        headers: {
+          ...headers,
+          authorization: `Bearer ${supabaseToken}`,
+          'x-client-id': 'mobile-app-v1',
+        },
+      };
+    } else {
+      console.log('Apollo Client: No authentication token found');
+      return {
+        headers: {
+          ...headers,
+          'x-client-id': 'mobile-app-v1',
+        },
+      };
+    }
+  } catch (error) {
+    console.error('Apollo Client: Error getting auth token:', error);
     return {
       headers: {
         ...headers,
-        authorization: token ? `Bearer ${token}` : '',
+        'x-client-id': 'mobile-app-v1',
       },
-    };
-  } catch (error) {
-    console.error('Error getting auth token:', error);
-    return {
-      headers,
     };
   }
 });
@@ -32,10 +49,10 @@ const errorLink = onError(({ graphQLErrors, networkError, operation, forward }) 
       );
 
       // Handle authentication errors
-      if (extensions?.code === 'UNAUTHENTICATED') {
-        // Clear token and redirect to login
-        AsyncStorage.removeItem('authToken');
-        // You can add navigation logic here if needed
+      if (message === 'Authentication required' || message.includes('Authentication')) {
+        console.log('🔐 Authentication error detected, clearing tokens...');
+        // Clear invalid tokens
+        AsyncStorage.multiRemove(['supabaseAccessToken', 'user', 'authToken']);
       }
     });
   }
@@ -47,7 +64,24 @@ const errorLink = onError(({ graphQLErrors, networkError, operation, forward }) 
 
 export const client = new ApolloClient({
   link: from([errorLink, authLink, httpLink]),
-  cache: new InMemoryCache(),
+  cache: new InMemoryCache({
+    typePolicies: {
+      Query: {
+        fields: {
+          // Add field policies for better caching
+          properties: {
+            merge: false, // Don't merge, replace
+          },
+          lists: {
+            merge: false,
+          },
+          items: {
+            merge: false,
+          },
+        },
+      },
+    },
+  }),
   defaultOptions: {
     watchQuery: {
       errorPolicy: 'all',
@@ -56,4 +90,6 @@ export const client = new ApolloClient({
       errorPolicy: 'all',
     },
   },
+  // Enable schema introspection for debugging
+  connectToDevTools: true,
 });

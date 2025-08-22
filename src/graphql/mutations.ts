@@ -1,14 +1,50 @@
 import { gql } from '@apollo/client';
 
-// Property mutations
+// Account Management Mutations
+export const CREATE_ACCOUNT = gql`
+  mutation CreateAccount($input: CreateAccountInput!) {
+    createAccount(input: $input) {
+      id
+      name
+      description
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+export const UPDATE_ACCOUNT = gql`
+  mutation UpdateAccount($id: ID!, $input: UpdateAccountInput!) {
+    updateAccount(id: $id, input: $input) {
+      id
+      name
+      description
+      updatedAt
+    }
+  }
+`;
+
+export const DELETE_ACCOUNT = gql`
+  mutation DeleteAccount($id: ID!) {
+    deleteAccount(id: $id)
+  }
+`;
+
+// Property Management Mutations
 export const CREATE_PROPERTY = gql`
   mutation CreateProperty($input: CreatePropertyInput!) {
     createProperty(input: $input) {
       id
       name
       address
+      description
+      barcode
       createdAt
       updatedAt
+      account {
+        id
+        name
+      }
     }
   }
 `;
@@ -19,7 +55,8 @@ export const UPDATE_PROPERTY = gql`
       id
       name
       address
-      createdAt
+      description
+      barcode
       updatedAt
     }
   }
@@ -31,54 +68,23 @@ export const DELETE_PROPERTY = gql`
   }
 `;
 
-// Room mutations
-export const CREATE_ROOM = gql`
-  mutation CreateRoom($input: CreateRoomInput!) {
-    createRoom(input: $input) {
-      id
-      name
-      description
-      propertyId
-      createdAt
-      updatedAt
-    }
-  }
-`;
-
-export const UPDATE_ROOM = gql`
-  mutation UpdateRoom($id: ID!, $input: UpdateRoomInput!) {
-    updateRoom(id: $id, input: $input) {
-      id
-      name
-      description
-      propertyId
-      createdAt
-      updatedAt
-    }
-  }
-`;
-
-export const DELETE_ROOM = gql`
-  mutation DeleteRoom($id: ID!) {
-    deleteRoom(id: $id)
-  }
-`;
-
-// List mutations
+// List Management Mutations
 export const CREATE_LIST = gql`
   mutation CreateList($input: CreateListInput!) {
     createList(input: $input) {
       id
-      title
+      name
+      description
       barcode
       createdAt
       updatedAt
-      items {
+      property {
         id
-        text
-        completed
-        createdAt
-        imageUrl
+        name
+        account {
+          id
+          name
+        }
       }
     }
   }
@@ -88,17 +94,10 @@ export const UPDATE_LIST = gql`
   mutation UpdateList($id: ID!, $input: UpdateListInput!) {
     updateList(id: $id, input: $input) {
       id
-      title
+      name
+      description
       barcode
-      createdAt
       updatedAt
-      items {
-        id
-        text
-        completed
-        createdAt
-        imageUrl
-      }
     }
   }
 `;
@@ -109,60 +108,33 @@ export const DELETE_LIST = gql`
   }
 `;
 
-// List item mutations
-export const CREATE_LIST_ITEM = gql`
-  mutation CreateListItem($input: CreateListItemInput!) {
-    createListItem(input: $input) {
-      id
-      text
-      completed
-      createdAt
-      imageUrl
-    }
-  }
-`;
-
-export const UPDATE_LIST_ITEM = gql`
-  mutation UpdateListItem($id: ID!, $input: UpdateListItemInput!) {
-    updateListItem(id: $id, input: $input) {
-      id
-      text
-      completed
-      createdAt
-      imageUrl
-    }
-  }
-`;
-
-export const DELETE_LIST_ITEM = gql`
-  mutation DeleteListItem($id: ID!) {
-    deleteListItem(id: $id)
-  }
-`;
-
-export const TOGGLE_LIST_ITEM = gql`
-  mutation ToggleListItem($id: ID!) {
-    toggleListItem(id: $id) {
-      id
-      text
-      completed
-      createdAt
-      imageUrl
-    }
-  }
-`;
-
-// Item mutations (for room items)
+// Item Management Mutations
 export const CREATE_ITEM = gql`
   mutation CreateItem($input: CreateItemInput!) {
     createItem(input: $input) {
       id
       name
       description
-      status
-      roomId
+      quantity
+      condition
+      estimatedValue
+      imageUrl
+      barcode
+      isCompleted
       createdAt
       updatedAt
+      list {
+        id
+        name
+        property {
+          id
+          name
+          account {
+            id
+            name
+          }
+        }
+      }
     }
   }
 `;
@@ -176,9 +148,9 @@ export const UPDATE_ITEM = gql`
       quantity
       condition
       estimatedValue
+      imageUrl
+      barcode
       isCompleted
-      roomId
-      createdAt
       updatedAt
     }
   }
@@ -190,11 +162,103 @@ export const DELETE_ITEM = gql`
   }
 `;
 
-export const UPDATE_ITEM_COMPLETION = gql`
-  mutation UpdateItemCompletion($id: ID!, $isCompleted: Boolean!) {
-    updateItem(id: $id, input: { isCompleted: $isCompleted }) {
+export const TOGGLE_ITEM_COMPLETION = gql`
+  mutation ToggleItemCompletion($id: ID!) {
+    toggleItemCompletion(id: $id) {
       id
+      name
       isCompleted
+      updatedAt
+    }
+  }
+`;
+
+// User Management Mutations
+export const INVITE_USER = gql`
+  mutation InviteUser($input: InviteUserInput!) {
+    inviteUser(input: $input) {
+      id
+      email
+      role
+      invitedBy {
+        id
+        name
+      }
+      expiresAt
+      createdAt
+    }
+  }
+`;
+
+export const ACCEPT_INVITATION = gql`
+  mutation AcceptInvitation($input: AcceptInvitationInput!) {
+    acceptInvitation(input: $input) {
+      id
+      role
+      isActive
+      account {
+        id
+        name
+      }
+      user {
+        id
+        name
+        email
+      }
+    }
+  }
+`;
+
+export const UPDATE_USER_ROLE = gql`
+  mutation UpdateUserRole($input: UpdateUserRoleInput!) {
+    updateUserRole(input: $input) {
+      id
+      role
+      isActive
+      user {
+        id
+        name
+        email
+      }
+    }
+  }
+`;
+
+export const REMOVE_USER_FROM_ACCOUNT = gql`
+  mutation RemoveUserFromAccount($accountId: ID!, $userId: ID!) {
+    removeUserFromAccount(accountId: $accountId, userId: $userId)
+  }
+`;
+
+// Barcode Management Mutations
+export const UPDATE_ITEM_BARCODE = gql`
+  mutation UpdateItemBarcode($id: ID!, $barcode: String!) {
+    updateItemBarcode(id: $id, barcode: $barcode) {
+      id
+      name
+      barcode
+      updatedAt
+    }
+  }
+`;
+
+export const UPDATE_PROPERTY_BARCODE = gql`
+  mutation UpdatePropertyBarcode($id: ID!, $barcode: String!) {
+    updatePropertyBarcode(id: $id, barcode: $barcode) {
+      id
+      name
+      barcode
+      updatedAt
+    }
+  }
+`;
+
+export const UPDATE_LIST_BARCODE = gql`
+  mutation UpdateListBarcode($id: ID!, $barcode: String!) {
+    updateListBarcode(id: $id, barcode: $barcode) {
+      id
+      name
+      barcode
       updatedAt
     }
   }

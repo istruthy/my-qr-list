@@ -4,6 +4,7 @@ import { Provider as PaperProvider, DefaultTheme } from 'react-native-paper';
 import { client } from './src/lib/apollo-client';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { GrowthBookProvider } from './src/contexts/GrowthBookProvider';
+import { AccountProvider } from './src/contexts/AccountContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
 
 const theme = {
@@ -21,7 +22,9 @@ export default function App() {
       <ApolloProvider client={client}>
         <PaperProvider theme={theme}>
           <AuthProvider>
-            <RootNavigator />
+            <AccountProvider>
+              <RootNavigator />
+            </AccountProvider>
           </AuthProvider>
         </PaperProvider>
       </ApolloProvider>

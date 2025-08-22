@@ -17,13 +17,12 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation } from '@apollo/client';
-import { GET_PROPERTY, GET_PROPERTIES } from '../graphql/queries';
-import { CREATE_ROOM } from '../graphql/mutations';
+import { GET_PROPERTY } from '../graphql/queries';
+import { CREATE_LIST } from '../graphql/mutations';
 import { PropertiesStackParamList } from '../types';
 import { ActionButton } from '../components/ActionButton';
 import { generateUUID } from '../utils/uuid';
-import { Property, Room, CreateRoomInput, ItemStatus } from '../graphql/types';
-import { useGraphQL } from '../hooks/useGraphQL';
+import { Property, List, CreateListInput } from '../graphql/types';
 
 type PropertyDetailsScreenProps = {
   navigation: NativeStackNavigationProp<PropertiesStackParamList, 'PropertyDetails'>;
@@ -38,17 +37,16 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
   console.log('PropertyDetailsScreen: Received propertyId from route.params:', propertyId);
   console.log('PropertyDetailsScreen: Full route.params:', route.params);
   console.log(
-    'PropertyDetailsScreen: Note: Rooms functionality now working with aliased lists data'
+    'PropertyDetailsScreen: Note: Lists functionality now working with proper GraphQL data'
   );
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newRoomName, setNewRoomName] = useState('');
-  const [newRoomDescription, setNewRoomDescription] = useState('');
+  const [newListName, setNewListName] = useState('');
+  const [newListDescription, setNewListDescription] = useState('');
   const theme = useTheme();
 
-  const { useSafeQuery, useSafeMutation } = useGraphQL();
   console.log(' == property id', propertyId);
-  // GraphQL query to fetch property with rooms
-  const { data, loading, error, refetch } = useSafeQuery<{ property: Property }, { id: string }>(
+  // GraphQL query to fetch property with lists
+  const { data, loading, error, refetch } = useQuery<{ property: Property }, { id: string }>(
     GET_PROPERTY,
     {
       variables: { id: propertyId },
@@ -73,39 +71,31 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
   console.log('PropertyDetailsScreen: Query variables:', { id: propertyId });
   console.log('PropertyDetailsScreen: Raw data response:', JSON.stringify(data, null, 2));
 
-  // Test query to see if we can fetch any properties at all
-  const { data: allPropertiesData } = useSafeQuery<{ properties: Property[] }, {}>(GET_PROPERTIES, {
-    onError: error => {
-      console.error('Error fetching all properties:', error);
-    },
-  });
-  console.log('PropertyDetailsScreen: All properties test query result:', allPropertiesData);
-
-  // GraphQL mutation to create a new room
-  const [createRoom, { loading: isCreatingRoom }] = useSafeMutation<
-    { createRoom: Room },
-    { input: CreateRoomInput }
-  >(CREATE_ROOM, {
+  // GraphQL mutation to create a new list
+  const [createList, { loading: isCreatingList }] = useMutation<
+    { createList: List },
+    { input: CreateListInput }
+  >(CREATE_LIST, {
     onCompleted: data => {
-      console.log('Room created successfully:', data);
+      console.log('List created successfully:', data);
       setShowAddModal(false);
-      setNewRoomName('');
-      setNewRoomDescription('');
-      // Refetch the property data to get the updated room list
+      setNewListName('');
+      setNewListDescription('');
+      // Refetch the property data to get the updated list
       refetch();
-      Alert.alert('Success', 'Room created successfully!');
+      Alert.alert('Success', 'List created successfully!');
     },
     onError: error => {
-      console.error('Error creating room:', error);
-      Alert.alert('Error', 'Failed to create room. Please try again.');
+      console.error('Error creating list:', error);
+      Alert.alert('Error', 'Failed to create list. Please try again.');
     },
   });
 
-  // Extract property and rooms from GraphQL response
+  // Extract property and lists from GraphQL response
   const property = data?.property;
-  const rooms = data?.property?.rooms || [];
+  const lists = data?.property?.lists || [];
 
-  // Add header button for adding rooms
+  // Add header button for adding lists
   React.useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
@@ -131,33 +121,33 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
   }, [navigation]);
 
   console.log('PropertyDetailsScreen: Component rendered with propertyId:', propertyId);
-  console.log('PropertyDetailsScreen: Current state - property:', property, 'rooms:', rooms);
+  console.log('PropertyDetailsScreen: Current state - property:', property, 'lists:', lists);
 
-  const handleAddRoom = async () => {
-    if (!newRoomName.trim()) {
-      Alert.alert('Error', 'Please enter a room name');
+  const handleAddList = async () => {
+    if (!newListName.trim()) {
+      Alert.alert('Error', 'Please enter a list name');
       return;
     }
 
-    const roomInput: CreateRoomInput = {
-      name: newRoomName.trim(),
-      description: newRoomDescription.trim() || undefined,
+    const listInput: CreateListInput = {
+      name: newListName.trim(),
+      description: newListDescription.trim() || undefined,
       propertyId: propertyId,
     };
 
     try {
-      await createRoom({
-        variables: { input: roomInput },
+      await createList({
+        variables: { input: listInput },
       });
     } catch (error) {
       // Error is handled in onError callback
     }
   };
 
-  const handleSelectRoom = (room: Room) => {
-    navigation.navigate('RoomDetails', {
-      roomId: room.id,
-      roomName: room.name,
+  const handleSelectList = (list: List) => {
+    navigation.navigate('ListDetails', {
+      listId: list.id,
+      listName: list.name,
       propertyId: propertyId,
     });
   };
@@ -165,14 +155,14 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
   const handleScanQR = () => {
     // Navigate to the root stack to access ScanQR screen
     navigation.getParent()?.navigate('ScanQR', {
-      mode: 'room',
+      mode: 'list',
       propertyId: propertyId,
-      onRoomScanned: (roomId: string) => {
-        const room = rooms.find((r: Room) => r.id === roomId);
-        if (room) {
-          navigation.navigate('RoomDetails', {
-            roomId: room.id,
-            roomName: room.name,
+      onListScanned: (listId: string) => {
+        const list = lists.find((l: List) => l.id === listId);
+        if (list) {
+          navigation.navigate('ListDetails', {
+            listId: list.id,
+            listName: list.name,
             propertyId: propertyId,
           });
         }
@@ -182,32 +172,32 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
 
   // Calculate overall property completion
   const propertyCompletion = {
-    totalRooms: rooms.length,
-    completedRooms: rooms.filter((room: any) => {
-      const itemCount = room.items?.length || 0;
+    totalLists: lists.length,
+    completedLists: lists.filter((list: any) => {
+      const itemCount = list.items?.length || 0;
       const completedItemCount =
-        room.items?.filter((item: any) => item.isCompleted === true).length || 0;
+        list.items?.filter((item: any) => item.isCompleted === true).length || 0;
       return itemCount > 0 && completedItemCount === itemCount;
     }).length,
     completionPercentage:
-      rooms.length > 0
+      lists.length > 0
         ? Math.round(
-            (rooms.filter((room: any) => {
-              const itemCount = room.items?.length || 0;
+            (lists.filter((list: any) => {
+              const itemCount = list.items?.length || 0;
               const completedItemCount =
-                room.items?.filter((item: any) => item.isCompleted === true).length || 0;
+                list.items?.filter((item: any) => item.isCompleted === true).length || 0;
               return itemCount > 0 && completedItemCount === itemCount;
             }).length /
-              rooms.length) *
+              lists.length) *
               100
           )
         : 0,
   };
 
-  const renderRoom = ({ item }: { item: any }) => {
-    console.log('PropertyDetailsScreen: Rendering room:', item);
+  const renderList = ({ item }: { item: any }) => {
+    console.log('PropertyDetailsScreen: Rendering list:', item);
 
-    // Calculate completion percentage for the room
+    // Calculate completion percentage for the list
     const itemCount = item.items?.length || 0;
     const completedItemCount =
       item.items?.filter((item: any) => item.isCompleted === true).length || 0;
@@ -216,11 +206,11 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
     const isCompleted = completionPercentage === 100;
 
     return (
-      <Card style={styles.roomCard} onPress={() => handleSelectRoom(item)}>
+      <Card style={styles.listCard} onPress={() => handleSelectList(item)}>
         <Card.Content>
-          <View style={styles.roomHeader}>
-            <Text variant="titleLarge" style={styles.roomName}>
-              🏠 {item.name}
+          <View style={styles.listHeader}>
+            <Text variant="titleLarge" style={styles.listName}>
+              📋 {item.name}
             </Text>
             {/* Completion status chip */}
             <Chip
@@ -242,7 +232,7 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
           </View>
 
           {item.description && (
-            <Text variant="bodyMedium" style={styles.roomDescription}>
+            <Text variant="bodyMedium" style={styles.listDescription}>
               {item.description}
             </Text>
           )}
@@ -264,7 +254,7 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
             />
           </View>
 
-          <View style={styles.roomInfo}>
+          <View style={styles.listInfo}>
             {item.barcode && (
               <Text variant="bodySmall" style={styles.barcodeInfo}>
                 📱 Barcode: {item.barcode}
@@ -277,18 +267,18 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
             )}
           </View>
 
-          <View style={styles.roomActions}>
+          <View style={styles.listActions}>
             <Button
               mode="outlined"
               onPress={() => handleScanQR()}
               style={styles.scanButton}
               icon="qrcode-scan"
             >
-              Scan Room
+              Scan List
             </Button>
             <Button
               mode="contained"
-              onPress={() => handleSelectRoom(item)}
+              onPress={() => handleSelectList(item)}
               style={styles.selectButton}
             >
               View Inventory
@@ -342,7 +332,7 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
     );
   }
 
-  console.log('PropertyDetailsScreen: Rendering with property:', property, 'and rooms:', rooms);
+  console.log('PropertyDetailsScreen: Rendering with property:', property, 'and lists:', lists);
 
   return (
     <View style={styles.container}>
@@ -359,7 +349,7 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
               Property Progress: {propertyCompletion.completionPercentage}%
             </Text>
             <Text variant="bodyMedium" style={styles.completionSubtitle}>
-              {propertyCompletion.completedRooms}/{propertyCompletion.totalRooms} rooms completed
+              {propertyCompletion.completedLists}/{propertyCompletion.totalLists} lists completed
             </Text>
           </View>
           <ProgressBar
@@ -376,28 +366,28 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
         </View>
 
         <Text variant="bodyMedium" style={styles.subtitle}>
-          Select a room to validate its inventory
+          Select a list to validate its inventory
         </Text>
       </View>
 
-      {rooms.length === 0 ? (
+      {lists.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyStateText}>No rooms found</Text>
+          <Text style={styles.emptyStateText}>No lists found</Text>
           <Text style={styles.emptyStateSubtext}>
-            This property doesn't have any rooms yet. Add rooms to organize your inventory.
+            This property doesn't have any lists yet. Add lists to organize your inventory.
           </Text>
           <ActionButton
-            label="Add First Room"
+            label="Add First List"
             onPress={() => setShowAddModal(true)}
             style={styles.addFirstButton}
           />
         </View>
       ) : (
         <FlatList
-          data={rooms}
-          renderItem={renderRoom}
+          data={lists}
+          renderItem={renderList}
           keyExtractor={(item: any) => item.id}
-          contentContainerStyle={styles.roomsList}
+          contentContainerStyle={styles.listsList}
           showsVerticalScrollIndicator={false}
         />
       )}
@@ -408,28 +398,28 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
           onDismiss={() => setShowAddModal(false)}
           contentContainerStyle={styles.modalContent}
         >
-          <Text style={styles.modalTitle}>Add New Room</Text>
+          <Text style={styles.modalTitle}>Add New List</Text>
 
           <TextInput
-            label="Room Name *"
-            value={newRoomName}
-            onChangeText={setNewRoomName}
+            label="List Name *"
+            value={newListName}
+            onChangeText={setNewListName}
             style={styles.input}
             mode="outlined"
-            placeholder="e.g., Living Room, Kitchen"
-            disabled={isCreatingRoom}
+            placeholder="e.g., Shopping List, To-Do List"
+            disabled={isCreatingList}
           />
 
           <TextInput
             label="Description"
-            value={newRoomDescription}
-            onChangeText={setNewRoomDescription}
+            value={newListDescription}
+            onChangeText={setNewListDescription}
             style={styles.input}
             mode="outlined"
-            placeholder="Brief description of the room"
+            placeholder="Brief description of the list"
             multiline
             numberOfLines={3}
-            disabled={isCreatingRoom}
+            disabled={isCreatingList}
           />
 
           <View style={styles.modalButtons}>
@@ -438,13 +428,13 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
               onPress={() => setShowAddModal(false)}
               variant="outline"
               style={styles.modalButton}
-              disabled={isCreatingRoom}
+              disabled={isCreatingList}
             />
             <ActionButton
-              label={isCreatingRoom ? 'Creating...' : 'Add Room'}
-              onPress={handleAddRoom}
+              label={isCreatingList ? 'Creating...' : 'Add List'}
+              onPress={handleAddList}
               style={styles.modalButton}
-              disabled={isCreatingRoom}
+              disabled={isCreatingList}
             />
           </View>
         </Modal>
@@ -475,10 +465,10 @@ const styles = StyleSheet.create({
   subtitle: {
     color: '#666',
   },
-  roomsList: {
+  listsList: {
     padding: 16,
   },
-  roomCard: {
+  listCard: {
     marginBottom: 16,
     elevation: 2,
     shadowColor: '#000',
@@ -486,13 +476,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 2,
   },
-  roomHeader: {
+  listHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
   },
-  roomName: {
+  listName: {
     fontWeight: 'bold',
     flex: 1,
     marginRight: 8,
@@ -504,7 +494,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: 'white',
   },
-  roomDescription: {
+  listDescription: {
     color: '#666',
     marginBottom: 12,
   },
@@ -529,7 +519,7 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
   },
-  roomInfo: {
+  listInfo: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -543,7 +533,7 @@ const styles = StyleSheet.create({
     color: '#666',
     fontStyle: 'italic',
   },
-  roomActions: {
+  listActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 8,

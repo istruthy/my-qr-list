@@ -14,18 +14,18 @@ import {
   ActivityIndicator,
 } from 'react-native-paper';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RouteProp } from '@react-navigation/native';
+import { RouteProp, useFocusEffect } from '@react-navigation/native';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_LIST } from '../graphql/queries';
-import { UPDATE_ITEM_COMPLETION } from '../graphql/mutations';
+import { TOGGLE_ITEM_COMPLETION } from '../graphql/mutations';
 import { PropertiesStackParamList } from '../types';
+import { List } from '../graphql/types';
 import { ActionButton } from '../components/ActionButton';
 import { generateUUID } from '../utils/uuid';
-import { useGraphQL } from '../hooks/useGraphQL';
 
-type RoomDetailsScreenProps = {
-  navigation: NativeStackNavigationProp<PropertiesStackParamList, 'RoomDetails'>;
-  route: RouteProp<PropertiesStackParamList, 'RoomDetails'>;
+type ListDetailsScreenProps = {
+  navigation: NativeStackNavigationProp<PropertiesStackParamList, 'ListDetails'>;
+  route: RouteProp<PropertiesStackParamList, 'ListDetails'>;
 };
 
 type InventoryItem = {
@@ -48,30 +48,29 @@ type DamageReason = 'broken' | 'missing' | 'worn' | 'stained' | 'other';
 
 const DAMAGE_REASONS: DamageReason[] = ['broken', 'missing', 'worn', 'stained', 'other'];
 
-export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation, route }) => {
-  const { roomId, roomName, propertyId } = route.params;
+export const ListDetailsScreen: React.FC<ListDetailsScreenProps> = ({ navigation, route }) => {
+  const { listId, listName, propertyId } = route.params;
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const { useSafeQuery } = useGraphQL();
-
-  // GraphQL query to fetch room data
-  console.log('RoomDetailsScreen: GraphQL query - roomId:', roomId);
-  const {
-    data,
-    loading: graphqlLoading,
-    error,
-    refetch,
-  } = useSafeQuery<{ list: any }, { id: string }>(GET_LIST, {
-    variables: { id: roomId },
+  // GraphQL query to get list details
+  const { data, loading, error, refetch } = useQuery<{ list: List }, { id: string }>(GET_LIST, {
+    variables: { id: listId },
     onError: error => {
-      console.error('Error fetching room data:', error);
-      Alert.alert('Error', 'Failed to load room data. Please try again.');
+      console.error('Error fetching list:', error);
     },
   });
 
+  // Automatically refetch data when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('ListDetailsScreen: Screen focused, refetching data...');
+      refetch();
+    }, [refetch])
+  );
+
   // GraphQL mutation to update item completion status
-  const [updateItemCompletion, { loading: updateLoading }] = useMutation(UPDATE_ITEM_COMPLETION, {
+  const [updateItemCompletion, { loading: updateLoading }] = useMutation(TOGGLE_ITEM_COMPLETION, {
     onError: error => {
       console.error('Error updating item completion:', error);
       Alert.alert('Error', 'Failed to update item status. Please try again.');
@@ -81,20 +80,23 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
     },
   });
 
+  // Handle focus changes to manage modal state
+  useEffect(() => {
+    return () => {
+      // Cleanup when leaving the screen
+    };
+  }, []);
+
   console.log(
-    'RoomDetailsScreen: GraphQL query state - loading:',
-    graphqlLoading,
+    'ListDetailsScreen: GraphQL query state - loading:',
+    loading,
     'error:',
     error,
     'data:',
     data
   );
-  const [showAddModal, setShowAddModal] = useState(false);
   const [showDamageModal, setShowDamageModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
-  const [newItemName, setNewItemName] = useState('');
-  const [newItemDescription, setNewItemDescription] = useState('');
-  const [newItemQuantity, setNewItemQuantity] = useState('1');
   const [damageReason, setDamageReason] = useState<DamageReason>('broken');
   const [damageNotes, setDamageNotes] = useState('');
   const [showCompletionModal, setShowCompletionModal] = useState(false);
@@ -112,13 +114,13 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
       headerRight: () => (
         <IconButton
           icon="plus"
-          onPress={() => setShowAddModal(true)}
+          onPress={() => navigation.navigate('AddItem', { listId, propertyId })}
           style={{ marginRight: 8 }}
           iconColor="#fff"
         />
       ),
     });
-  }, [navigation]);
+  }, [navigation, listId, propertyId]);
 
   useEffect(() => {
     if (data?.list) {
@@ -141,81 +143,37 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
 
       setInventoryItems(transformedItems);
       setIsLoading(false);
-      console.log('RoomDetailsScreen: Transformed GraphQL items:', transformedItems);
+      console.log('ListDetailsScreen: Transformed GraphQL items:', transformedItems);
     }
-  }, [data, roomId]);
+  }, [data, listId]);
 
   // Check room completion status whenever inventory items change
   useEffect(() => {
-    checkRoomCompletion();
+    if (inventoryItems.length > 0) {
+      const totalItems = inventoryItems.length;
+      const completedItems = inventoryItems.filter(item => item.isCompleted).length;
+      const completionPercentage = Math.round((completedItems / totalItems) * 100);
+      const isCompleted = completedItems === totalItems;
+
+      setRoomCompletionStatus({
+        totalItems,
+        completedItems,
+        completionPercentage,
+        isCompleted,
+      });
+    }
   }, [inventoryItems]);
-
-  const checkRoomCompletion = () => {
-    const totalItems = inventoryItems.length;
-    // Only count verified items as truly completed
-    const completedItems = inventoryItems.filter(item => item.status === 'verified').length;
-    const completionPercentage =
-      totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
-    const isCompleted = completionPercentage === 100;
-
-    setRoomCompletionStatus({
-      totalItems,
-      completedItems,
-      completionPercentage,
-      isCompleted,
-    });
-
-    // Auto-show completion modal when room is truly completed (all items verified)
-    if (isCompleted && !showCompletionModal && totalItems > 0) {
-      setTimeout(() => {
-        setShowCompletionModal(true);
-      }, 1000);
-    }
-  };
-
-  const loadInventoryItems = async () => {
-    // This function is no longer needed as we're using GraphQL
-    // Keeping it for compatibility but it's not used
-  };
-
-  const handleAddItem = async () => {
-    if (!newItemName.trim() || !newItemQuantity.trim()) {
-      Alert.alert('Error', 'Please enter item name and quantity');
-      return;
-    }
-
-    const quantity = parseInt(newItemQuantity);
-    if (isNaN(quantity) || quantity <= 0) {
-      Alert.alert('Error', 'Please enter a valid quantity');
-      return;
-    }
-
-    const newItem: InventoryItem = {
-      id: await generateUUID(),
-      name: newItemName.trim(),
-      description: newItemDescription.trim() || undefined,
-      quantity: quantity,
-      status: 'pending',
-      isCompleted: false,
-      createdAt: new Date().toISOString(),
-    };
-
-    setInventoryItems([...inventoryItems, newItem]);
-    setShowAddModal(false);
-    setNewItemName('');
-    setNewItemDescription('');
-    setNewItemQuantity('1');
-  };
 
   const handleScanItem = (item: InventoryItem) => {
     // Navigate to the root stack to access ScanQR screen
     navigation.getParent()?.navigate('ScanQR', {
       mode: 'item',
       propertyId: propertyId,
-      roomId: roomId,
+      listId: listId,
       onItemScanned: (itemId: string) => {
         if (itemId === item.id) {
-          handleQuantityUpdate(item, item.quantity);
+          // Handle item verification logic here
+          console.log('ListDetailsScreen: Item scanned for verification:', item.name);
         }
       },
     });
@@ -486,13 +444,13 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
     </Card>
   );
 
-  if (isLoading || graphqlLoading || updateLoading) {
+  if (isLoading || loading || updateLoading) {
     return (
       <View style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text variant="headlineMedium">Loading Inventory...</Text>
-          <Text style={styles.loadingSubtext}>Room ID: {roomId}</Text>
+          <Text style={styles.loadingSubtext}>List ID: {listId}</Text>
         </View>
       </View>
     );
@@ -502,8 +460,8 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
     return (
       <View style={styles.container}>
         <View style={styles.loadingContainer}>
-          <Text variant="headlineMedium">Error Loading Room</Text>
-          <Text style={styles.loadingSubtext}>Failed to load room data</Text>
+          <Text variant="headlineMedium">Error Loading List</Text>
+          <Text style={styles.loadingSubtext}>Failed to load list data</Text>
           <Button mode="contained" onPress={() => refetch()} style={styles.testButton}>
             Retry
           </Button>
@@ -518,7 +476,7 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
       <View style={styles.statsHeader}>
         <View style={styles.completionOverview}>
           <Text variant="titleMedium" style={styles.completionTitle}>
-            Room Completion: {roomCompletionStatus.completionPercentage}%
+            List Completion: {roomCompletionStatus.completionPercentage}%
           </Text>
           <ProgressBar
             progress={roomCompletionStatus.completionPercentage / 100}
@@ -577,14 +535,14 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
       {!roomCompletionStatus.isCompleted && roomCompletionStatus.totalItems > 0 && (
         <View style={styles.completionButtonContainer}>
           <ActionButton
-            label="Mark Room as Complete"
+            label="Mark List as Complete"
             onPress={showRoomCompletionModal}
             style={styles.completionButton}
             variant="primary"
             icon="check-circle"
           />
           <Text style={styles.completionButtonText}>
-            Mark room as complete when all items are verified
+            Mark list as complete when all items are verified
           </Text>
         </View>
       )}
@@ -592,10 +550,10 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
       {inventoryItems.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyStateText}>No inventory items yet</Text>
-          <Text style={styles.emptyStateSubtext}>Add items to track in this room</Text>
+          <Text style={styles.emptyStateSubtext}>Add items to track in this list</Text>
           <ActionButton
             label="Add First Item"
-            onPress={() => setShowAddModal(true)}
+            onPress={() => navigation.navigate('AddItem', { listId, propertyId })}
             style={styles.addFirstButton}
           />
         </View>
@@ -608,57 +566,6 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
           showsVerticalScrollIndicator={false}
         />
       )}
-
-      {/* Add Item Modal */}
-      <Portal>
-        <Modal
-          visible={showAddModal}
-          onDismiss={() => setShowAddModal(false)}
-          contentContainerStyle={styles.modalContent}
-        >
-          <Text style={styles.modalTitle}>Add Inventory Item</Text>
-
-          <TextInput
-            label="Item Name *"
-            value={newItemName}
-            onChangeText={setNewItemName}
-            style={styles.input}
-            mode="outlined"
-            placeholder="e.g., Coffee Table, Lamp"
-          />
-
-          <TextInput
-            label="Description"
-            value={newItemDescription}
-            onChangeText={setNewItemDescription}
-            style={styles.input}
-            mode="outlined"
-            placeholder="Brief description of the item"
-            multiline
-            numberOfLines={3}
-          />
-
-          <TextInput
-            label="Expected Quantity *"
-            value={newItemQuantity}
-            onChangeText={setNewItemQuantity}
-            style={styles.input}
-            mode="outlined"
-            placeholder="1"
-            keyboardType="numeric"
-          />
-
-          <View style={styles.modalButtons}>
-            <ActionButton
-              label="Cancel"
-              onPress={() => setShowAddModal(false)}
-              variant="outline"
-              style={styles.modalButton}
-            />
-            <ActionButton label="Add Item" onPress={handleAddItem} style={styles.modalButton} />
-          </View>
-        </Modal>
-      </Portal>
 
       {/* Damage Report Modal */}
       <Portal>
@@ -720,10 +627,10 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
           onDismiss={() => setShowCompletionModal(false)}
           contentContainerStyle={styles.modalContent}
         >
-          <Text style={styles.modalTitle}>🎉 Room Completed!</Text>
-          <Text style={styles.modalSubtitle}>{roomName}</Text>
+          <Text style={styles.modalTitle}>🎉 List Completed!</Text>
+          <Text style={styles.modalSubtitle}>{listName}</Text>
           <Text style={styles.modalBody}>
-            All items in this room have been validated. Great job!
+            All items in this list have been validated. Great job!
           </Text>
           <View style={styles.modalButtons}>
             <ActionButton label="OK" onPress={handleRoomCompleted} style={styles.modalButton} />
@@ -734,16 +641,11 @@ export const RoomDetailsScreen: React.FC<RoomDetailsScreenProps> = ({ navigation
   );
 };
 
+// Remove unused styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
-  },
-  statsHeader: {
-    padding: 12,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
   },
   header: {
     padding: 20,
@@ -752,43 +654,39 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e0e0e0',
   },
   title: {
+    fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 8,
+    color: '#333',
   },
   subtitle: {
+    fontSize: 16,
     color: '#666',
     marginBottom: 16,
   },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
+  addFirstButton: {
+    marginTop: 20,
+    backgroundColor: '#1e3a8a',
   },
-  statItem: {
-    alignItems: 'center',
+  emptyStateContainer: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
-  statNumber: {
-    fontWeight: 'bold',
-    color: '#2196f3',
+  emptyStateText: {
     fontSize: 18,
-  },
-  statLabel: {
     color: '#666',
-    fontSize: 11,
-    marginTop: 2,
+    textAlign: 'center',
+    marginBottom: 20,
   },
-  itemsList: {
+  listContainer: {
     padding: 16,
   },
   itemCard: {
-    marginBottom: 16,
+    marginBottom: 12,
     backgroundColor: 'white',
     elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
   },
   itemHeader: {
     flexDirection: 'row',
@@ -797,16 +695,157 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   itemName: {
+    fontSize: 18,
     fontWeight: 'bold',
     flex: 1,
     marginRight: 8,
   },
+  itemDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8,
+  },
+  itemDetails: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  itemDetail: {
+    fontSize: 12,
+    color: '#888',
+    marginRight: 16,
+  },
+  itemActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  completionStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  completionText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginRight: 12,
+    color: '#333',
+  },
+  progressBar: {
+    flex: 1,
+    height: 8,
+    borderRadius: 4,
+  },
+  progressText: {
+    fontSize: 14,
+    color: '#666',
+    marginLeft: 12,
+  },
+  fab: {
+    position: 'absolute',
+    margin: 16,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#1e3a8a',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    padding: 20,
+    margin: 20,
+    borderRadius: 8,
+    maxHeight: '80%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+    color: '#333',
+  },
+  input: {
+    marginBottom: 16,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  modalButton: {
+    flex: 1,
+    marginHorizontal: 4,
+  },
+  damageModalContent: {
+    backgroundColor: 'white',
+    padding: 20,
+    margin: 20,
+    borderRadius: 8,
+    maxHeight: '80%',
+  },
+  damageModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+    color: '#333',
+  },
+  damageReasonContainer: {
+    marginBottom: 16,
+  },
+  damageReasonLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: '#333',
+  },
+  damageReasonChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  damageReasonChip: {
+    marginBottom: 8,
+  },
+  damageNotesInput: {
+    marginBottom: 16,
+  },
+  damageModalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  damageModalButton: {
+    flex: 1,
+    marginHorizontal: 4,
+  },
+  completionModalContent: {
+    backgroundColor: 'white',
+    padding: 20,
+    margin: 20,
+    borderRadius: 8,
+    maxHeight: '80%',
+  },
+  completionModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+    color: '#333',
+  },
+  completionModalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  completionModalButton: {
+    flex: 1,
+    marginHorizontal: 4,
+  },
   statusChip: {
     alignSelf: 'flex-start',
-  },
-  itemDescription: {
-    color: '#666',
-    marginBottom: 12,
   },
   quantitySection: {
     flexDirection: 'row',
@@ -832,89 +871,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontStyle: 'italic',
   },
-  itemActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
   actionButton: {
     flex: 1,
     minWidth: 100,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  emptyStateText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  emptyStateSubtext: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 22,
-  },
-  addFirstButton: {
-    minWidth: 200,
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    padding: 20,
-    margin: 20,
-    borderRadius: 8,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  modalSubtitle: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  modalBody: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 20,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  modalLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 8,
-  },
-  reasonChips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 16,
-  },
-  reasonChip: {
-    marginBottom: 4,
-  },
-  input: {
-    marginBottom: 16,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  modalButton: {
-    flex: 1,
-    marginHorizontal: 4,
   },
   loadingContainer: {
     flex: 1,
@@ -927,6 +886,15 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 10,
     textAlign: 'center',
+  },
+  testButton: {
+    marginTop: 10,
+  },
+  statsHeader: {
+    padding: 12,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
   },
   completionOverview: {
     alignItems: 'center',
@@ -944,6 +912,25 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     width: '100%',
   },
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statNumber: {
+    fontWeight: 'bold',
+    color: '#2196f3',
+    fontSize: 18,
+  },
+  statLabel: {
+    color: '#666',
+    fontSize: 11,
+    marginTop: 2,
+  },
   completionButtonContainer: {
     alignItems: 'center',
     marginTop: 16,
@@ -960,9 +947,48 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-  testButton: {
-    marginTop: 10,
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  emptyStateSubtext: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  itemsList: {
+    padding: 16,
+  },
+  modalSubtitle: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  modalLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  reasonChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  reasonChip: {
+    marginBottom: 4,
+  },
+  modalBody: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 20,
+    textAlign: 'center',
+    lineHeight: 22,
   },
 });
 
-export default RoomDetailsScreen;
+export default ListDetailsScreen;

@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { View, StyleSheet, Dimensions, ScrollView } from 'react-native';
-import { Text, Button, Card, IconButton, useTheme, Searchbar } from 'react-native-paper';
+import { View, StyleSheet, Dimensions, ScrollView, Text, TouchableOpacity } from 'react-native';
+import { useTheme } from 'react-native-paper';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,9 +12,8 @@ import Animated, {
   Extrapolate,
 } from 'react-native-reanimated';
 import { RootStackParamList } from '../types';
-import { getAllLists, deleteList } from '../utils/storage';
-import { List, ListItem } from '../types';
 import { ActionButton } from '../components/ActionButton';
+import { useAuth } from '../hooks/useAuth';
 
 const { width: screenWidth } = Dimensions.get('window');
 const CARD_WIDTH = screenWidth * 0.85;
@@ -25,22 +24,15 @@ type HomeScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList>;
 };
 
-type SearchResult = {
-  listId: string;
-  listTitle: string;
-  item: ListItem;
-};
-
-type ListOrSearchResult = List | SearchResult;
-
 // Separate component for animated cards to avoid hooks violation
 const CarouselCard: React.FC<{
-  item: ListOrSearchResult;
+  title: string;
+  subtitle: string;
+  barcode?: string;
   index: number;
   scrollX: Animated.SharedValue<number>;
   onPress: () => void;
-  onDelete?: () => void;
-}> = ({ item, index, scrollX, onPress, onDelete }) => {
+}> = ({ title, subtitle, barcode, index, scrollX, onPress }) => {
   const animatedStyle = useAnimatedStyle(() => {
     const input = scrollX.value;
     const translateX = input - (CARD_WIDTH + CARD_SPACING) * index;
@@ -65,100 +57,35 @@ const CarouselCard: React.FC<{
     };
   });
 
-  if ('items' in item) {
-    // This is a List
-    return (
-      <Animated.View key={item.id} style={[styles.cardContainer, animatedStyle]}>
-        <Card style={styles.card} onPress={onPress}>
-          <Card.Content>
-            <View style={styles.cardHeader}>
-              <Text variant="titleMedium">{item.title}</Text>
-              {onDelete && (
-                <IconButton
-                  icon="delete"
-                  size={20}
-                  onPress={onDelete}
-                  style={styles.deleteButton}
-                />
-              )}
-            </View>
-            <Text variant="bodyMedium">{item.items.length} items</Text>
-            {item.barcode && (
-              <Text variant="bodySmall" style={styles.barcodeText}>
-                Barcode: {item.barcode}
-              </Text>
-            )}
-          </Card.Content>
-        </Card>
-      </Animated.View>
-    );
-  } else {
-    // This is a SearchResult
-    return (
-      <Animated.View
-        key={`${item.listId}-${item.item.id}`}
-        style={[styles.cardContainer, animatedStyle]}
-      >
-        <Card style={styles.card} onPress={onPress}>
-          <Card.Content>
-            <Text variant="titleMedium">{item.listTitle}</Text>
-            <Text variant="bodyMedium">{item.item.text}</Text>
-          </Card.Content>
-        </Card>
-      </Animated.View>
-    );
-  }
+  return (
+    <Animated.View key={index} style={[styles.cardContainer, animatedStyle]}>
+      <TouchableOpacity style={styles.card} onPress={onPress}>
+        <View style={styles.cardContent}>
+          <Text style={styles.cardTitle}>{title}</Text>
+          <Text style={styles.cardSubtitle}>{subtitle}</Text>
+          {barcode && <Text style={styles.barcodeText}>Barcode: {barcode}</Text>}
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
 };
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
-  const [lists, setLists] = useState<List[]>([]);
+  const { user, currentAccount } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const theme = useTheme();
   const scrollX = useSharedValue(0);
   const scrollViewRef = useRef<Animated.ScrollView>(null);
 
-  const loadLists = async () => {
-    try {
-      const loadedLists = await getAllLists();
-      console.log('Loaded lists:', loadedLists);
-      setLists(loadedLists);
-    } catch (error) {
-      console.error('Error loading lists:', error);
-    }
-  };
-
-  useFocusEffect(
-    React.useCallback(() => {
-      loadLists();
-    }, [])
-  );
+  // Mock data for now - will be replaced with GraphQL data
+  const mockProperties = [
+    { id: '1', name: 'My House', address: 'In the middle of the street', barcode: undefined },
+    { id: '2', name: 'Island Condo', address: '3 Ocean View', barcode: 'kitchen-002' },
+  ];
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    if (!query.trim()) {
-      setSearchResults([]);
-      return;
-    }
-
-    const results: SearchResult[] = [];
-    lists.forEach(list => {
-      list.items.forEach(item => {
-        if (item.text.toLowerCase().includes(query.toLowerCase())) {
-          results.push({
-            listId: list.id,
-            listTitle: list.title,
-            item,
-          });
-        }
-      });
-    });
-    setSearchResults(results);
-  };
-
-  const handleDeleteList = async (listId: string) => {
-    await deleteList(listId);
-    loadLists();
+    // TODO: Implement GraphQL search
   };
 
   const scrollHandler = useAnimatedScrollHandler({
@@ -168,19 +95,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   });
 
   const renderCarousel = () => {
-    const data = searchQuery ? searchResults : lists;
+    const data = mockProperties;
 
     if (data.length === 0) {
       return (
         <View style={styles.emptyState}>
-          <Text variant="titleMedium" style={styles.emptyStateTitle}>
-            {searchQuery ? 'No search results found' : 'No lists yet'}
-          </Text>
-          <Text variant="bodyMedium" style={styles.emptyStateSubtitle}>
-            {searchQuery
-              ? 'Try adjusting your search terms'
-              : 'Create your first list to get started'}
-          </Text>
+          <Text style={styles.emptyStateTitle}>No properties yet</Text>
+          <Text style={styles.emptyStateSubtitle}>Create your first property to get started</Text>
         </View>
       );
     }
@@ -196,20 +117,23 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         onScroll={scrollHandler}
         scrollEventThrottle={16}
       >
-        {data.map((item, index) => (
+        {data.map((property, index) => (
           <CarouselCard
-            key={'items' in item ? item.id : `${item.listId}-${item.item.id}`}
-            item={item}
+            key={property.id}
+            title={property.name}
+            subtitle={property.address}
+            barcode={property.barcode}
             index={index}
             scrollX={scrollX}
             onPress={() => {
-              if ('items' in item) {
-                navigation.navigate('ViewList', { listId: item.id });
-              } else {
-                navigation.navigate('ViewList', { listId: item.listId });
-              }
+              navigation.navigate('MainTabs', {
+                screen: 'Properties',
+                params: {
+                  screen: 'PropertyDetails',
+                  params: { propertyId: property.id },
+                },
+              });
             }}
-            onDelete={'items' in item ? () => handleDeleteList(item.id) : undefined}
           />
         ))}
       </Animated.ScrollView>
@@ -218,18 +142,39 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <Searchbar
-        placeholder="Search your items..."
-        onChangeText={handleSearch}
-        value={searchQuery}
-        style={styles.searchBar}
-        iconColor={theme.colors.primary}
-      />
+      <View style={styles.header}>
+        <Text style={styles.title}>Welcome back, {user?.name || 'User'}!</Text>
+        {currentAccount && <Text style={styles.subtitle}>Account: {currentAccount.name}</Text>}
+      </View>
+
+      <View style={styles.searchContainer}>
+        <Text style={styles.searchLabel}>Search Properties</Text>
+        <TouchableOpacity
+          style={styles.searchBar}
+          onPress={() =>
+            navigation.navigate('MainTabs', {
+              screen: 'Properties',
+              params: { screen: 'PropertySelection' },
+            })
+          }
+        >
+          <Text style={styles.searchPlaceholder}>Tap to search properties...</Text>
+        </TouchableOpacity>
+      </View>
 
       <View style={styles.carouselWrapper}>{renderCarousel()}</View>
 
       <SafeAreaView edges={['bottom']} style={styles.footer}>
-        <ActionButton label="Create New List" onPress={() => navigation.navigate('CreateList')} />
+        <ActionButton label="Scan QR Code" onPress={() => navigation.navigate('ScanQR')} />
+        <ActionButton
+          label="View All Properties"
+          onPress={() =>
+            navigation.navigate('MainTabs', {
+              screen: 'Properties',
+              params: { screen: 'PropertySelection' },
+            })
+          }
+        />
       </SafeAreaView>
     </View>
   );
@@ -250,11 +195,27 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
   },
-  headerButton: {
-    margin: 0,
+  subtitle: {
+    fontSize: 16,
+    opacity: 0.7,
+  },
+  searchContainer: {
+    marginBottom: 16,
+  },
+  searchLabel: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
   },
   searchBar: {
-    marginBottom: 16,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    fontSize: 16,
+  },
+  searchPlaceholder: {
+    color: '#888',
   },
   carouselWrapper: {
     flex: 1,
@@ -270,6 +231,7 @@ const styles = StyleSheet.create({
   card: {
     height: 160,
     backgroundColor: 'white',
+    borderRadius: 10,
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: {
@@ -279,19 +241,23 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  cardContent: {
+    padding: 16,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  cardSubtitle: {
+    fontSize: 14,
+    color: '#555',
     marginBottom: 8,
   },
-  deleteButton: {
-    margin: 0,
-  },
   barcodeText: {
-    marginTop: 8,
-    fontFamily: 'monospace',
     fontSize: 12,
+    fontFamily: 'monospace',
+    color: '#007bff',
   },
   emptyState: {
     flex: 1,
@@ -302,10 +268,13 @@ const styles = StyleSheet.create({
   emptyStateTitle: {
     textAlign: 'center',
     marginBottom: 8,
+    fontSize: 20,
+    fontWeight: 'bold',
   },
   emptyStateSubtitle: {
     textAlign: 'center',
     opacity: 0.7,
+    fontSize: 16,
   },
   footer: {
     paddingTop: 8,

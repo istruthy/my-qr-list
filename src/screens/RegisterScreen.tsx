@@ -131,26 +131,6 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
                 style={styles.input}
                 disabled={isLoading}
               />
-
-              <Button
-                mode="contained"
-                onPress={handleRegister}
-                loading={isLoading}
-                disabled={isLoading}
-                style={styles.registerButton}
-                contentStyle={styles.buttonContent}
-              >
-                Create Account
-              </Button>
-
-              <Button
-                mode="text"
-                onPress={handleLoginPress}
-                disabled={isLoading}
-                style={styles.loginButton}
-              >
-                Already have an account? Sign in
-              </Button>
             </Card.Content>
           </Card>
         </View>

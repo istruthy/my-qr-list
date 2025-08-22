@@ -2,7 +2,8 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { PropertySelectionScreen } from '../screens/PropertySelectionScreen';
 import { PropertyDetailsScreen } from '../screens/PropertyDetailsScreen';
-import { RoomDetailsScreen } from '../screens/RoomDetailsScreen';
+import { ListDetailsScreen } from '../screens/ListDetailsScreen';
+import { AddItemScreen } from '../screens/AddItemScreen';
 import { PropertiesStackParamList } from '../types';
 
 const Stack = createNativeStackNavigator<PropertiesStackParamList>();
@@ -14,7 +15,7 @@ export const PropertiesStackNavigator: React.FC = () => {
         name="PropertySelection"
         component={PropertySelectionScreen}
         options={{
-          title: 'My Properties',
+          title: 'Host Inventory Sync',
           headerStyle: {
             backgroundColor: '#1e3a8a', // Dark blue background
           },
@@ -39,10 +40,10 @@ export const PropertiesStackNavigator: React.FC = () => {
         }}
       />
       <Stack.Screen
-        name="RoomDetails"
-        component={RoomDetailsScreen}
+        name="ListDetails"
+        component={ListDetailsScreen}
         options={({ route }) => ({
-          title: route.params?.roomName || 'Room Details',
+          title: route.params?.listName || 'List Details',
           headerStyle: {
             backgroundColor: '#1e3a8a',
           },
@@ -51,6 +52,20 @@ export const PropertiesStackNavigator: React.FC = () => {
             fontWeight: 'bold',
           },
         })}
+      />
+      <Stack.Screen
+        name="AddItem"
+        component={AddItemScreen}
+        options={{
+          title: 'Add Item',
+          headerStyle: {
+            backgroundColor: '#1e3a8a',
+          },
+          headerTintColor: '#ffffff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
       />
     </Stack.Navigator>
   );

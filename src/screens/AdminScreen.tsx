@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
+import { View, StyleSheet, Alert, ScrollView } from 'react-native';
 import { Text, Button, Card, Avatar } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
@@ -34,87 +34,91 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
       </View>
 
       {/* User Info Card */}
-      <View style={styles.content}>
-        <Card style={styles.userCard}>
-          <Card.Content style={styles.userCardContent}>
-            <Avatar.Text
-              size={50}
-              label={
-                user?.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || 'U'
-              }
-              style={styles.avatar}
-            />
-            <View style={styles.userInfo}>
-              <Text variant="titleMedium" style={styles.userName}>
-                {user?.name || 'User'}
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        <View style={styles.content}>
+          <Card style={styles.userCard}>
+            <Card.Content style={styles.userCardContent}>
+              <Avatar.Text
+                size={50}
+                label={
+                  user?.name?.charAt(0)?.toUpperCase() ||
+                  user?.email?.charAt(0)?.toUpperCase() ||
+                  'U'
+                }
+                style={styles.avatar}
+              />
+              <View style={styles.userInfo}>
+                <Text variant="titleMedium" style={styles.userName}>
+                  {user?.name || 'User'}
+                </Text>
+                <Text variant="bodyMedium" style={styles.userEmail}>
+                  {user?.email}
+                </Text>
+              </View>
+            </Card.Content>
+          </Card>
+
+          <Card style={styles.card}>
+            <Card.Content>
+              <Text variant="titleMedium">GraphQL Debug</Text>
+              <Text variant="bodyMedium" style={styles.cardText}>
+                Debug GraphQL connection and schema issues
               </Text>
-              <Text variant="bodyMedium" style={styles.userEmail}>
-                {user?.email}
+              <Button mode="contained" style={styles.button} onPress={navigateToDebug}>
+                Open Debug Panel
+              </Button>
+            </Card.Content>
+          </Card>
+
+          <Card style={styles.card}>
+            <Card.Content>
+              <Text variant="titleMedium">Database Management</Text>
+              <Text variant="bodyMedium" style={styles.cardText}>
+                Manage properties, rooms, and inventory data
               </Text>
-            </View>
-          </Card.Content>
-        </Card>
+              <Button mode="contained" style={styles.button}>
+                Open Database
+              </Button>
+            </Card.Content>
+          </Card>
 
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text variant="titleMedium">GraphQL Debug</Text>
-            <Text variant="bodyMedium" style={styles.cardText}>
-              Debug GraphQL connection and schema issues
-            </Text>
-            <Button mode="contained" style={styles.button} onPress={navigateToDebug}>
-              Open Debug Panel
-            </Button>
-          </Card.Content>
-        </Card>
+          <Card style={styles.card}>
+            <Card.Content>
+              <Text variant="titleMedium">User Management</Text>
+              <Text variant="bodyMedium" style={styles.cardText}>
+                Manage user accounts and permissions
+              </Text>
+              <Button mode="contained" style={styles.button}>
+                Manage Users
+              </Button>
+            </Card.Content>
+          </Card>
 
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text variant="titleMedium">Database Management</Text>
-            <Text variant="bodyMedium" style={styles.cardText}>
-              Manage properties, rooms, and inventory data
-            </Text>
-            <Button mode="contained" style={styles.button}>
-              Open Database
-            </Button>
-          </Card.Content>
-        </Card>
+          <Card style={styles.card}>
+            <Card.Content>
+              <Text variant="titleMedium">System Settings</Text>
+              <Text variant="bodyMedium" style={styles.cardText}>
+                Configure system preferences and options
+              </Text>
+              <Button mode="contained" style={styles.button}>
+                Settings
+              </Button>
+            </Card.Content>
+          </Card>
 
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text variant="titleMedium">User Management</Text>
-            <Text variant="bodyMedium" style={styles.cardText}>
-              Manage user accounts and permissions
-            </Text>
-            <Button mode="contained" style={styles.button}>
-              Manage Users
-            </Button>
-          </Card.Content>
-        </Card>
-
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text variant="titleMedium">System Settings</Text>
-            <Text variant="bodyMedium" style={styles.cardText}>
-              Configure system preferences and options
-            </Text>
-            <Button mode="contained" style={styles.button}>
-              Settings
-            </Button>
-          </Card.Content>
-        </Card>
-
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text variant="titleMedium">Account</Text>
-            <Text variant="bodyMedium" style={styles.cardText}>
-              Manage your account and logout
-            </Text>
-            <Button mode="outlined" style={styles.logoutButton} onPress={handleLogout}>
-              Logout
-            </Button>
-          </Card.Content>
-        </Card>
-      </View>
+          <Card style={styles.card}>
+            <Card.Content>
+              <Text variant="titleMedium">Account</Text>
+              <Text variant="bodyMedium" style={styles.cardText}>
+                Manage your account and logout
+              </Text>
+              <Button mode="outlined" style={styles.logoutButton} onPress={handleLogout}>
+                Logout
+              </Button>
+            </Card.Content>
+          </Card>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -141,6 +145,10 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
+    paddingBottom: 32, // Add extra bottom padding for better scrolling experience
+  },
+  scrollView: {
+    flex: 1,
   },
   userCard: {
     marginBottom: 16,

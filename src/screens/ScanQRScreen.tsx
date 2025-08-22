@@ -20,9 +20,11 @@ type ScanQRScreenProps = {
       scannedBarcode?: string;
       propertyId?: string;
       roomId?: string;
+      listId?: string; // Added for item mode
       onPropertyScanned?: (propertyId: string) => void;
       onRoomScanned?: (roomId: string) => void;
       onItemScanned?: (itemId: string) => void;
+      onScanCancelled?: () => void; // Added for cancelling scan
     };
   };
 };
@@ -172,10 +174,18 @@ export const ScanQRScreen: React.FC<ScanQRScreenProps> = ({ navigation, route })
       }
       if (mode === 'item' && route.params?.onItemScanned) {
         try {
+          console.log('[ScanQRScreen] Processing item scan, calling callback...');
           route.params.onItemScanned(data);
-          if (typeof navigation.goBack === 'function') {
-            navigation.goBack();
-          }
+          console.log('[ScanQRScreen] Item callback completed, navigating back...');
+
+          // For item mode, we want to go back to the AddItemScreen
+          // Use goBack() to return to the existing screen instance
+          setTimeout(() => {
+            if (typeof navigation.goBack === 'function') {
+              console.log('[ScanQRScreen] Navigating back to AddItemScreen...');
+              navigation.goBack();
+            }
+          }, 100);
           return;
         } catch (callbackError) {
           console.error('[ScanQRScreen] Item callback error:', callbackError);
@@ -414,7 +424,22 @@ export const ScanQRScreen: React.FC<ScanQRScreenProps> = ({ navigation, route })
           <Text style={styles.bottomText}>
             {scanned ? 'Processing...' : 'Align the QR code within the frame'}
           </Text>
-          <Button mode="contained" onPress={() => navigation.goBack()} style={styles.button}>
+          <Button
+            mode="contained"
+            onPress={() => {
+              // Call the onScanCancelled callback if it exists
+              if (route.params?.onScanCancelled) {
+                try {
+                  route.params.onScanCancelled();
+                } catch (callbackError) {
+                  console.error('[ScanQRScreen] Scan cancelled callback error:', callbackError);
+                }
+              }
+              // Always go back
+              navigation.goBack();
+            }}
+            style={styles.button}
+          >
             Cancel
           </Button>
           {scanned && (

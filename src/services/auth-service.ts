@@ -1,27 +1,19 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { User, AuthResponse } from '../graphql/types';
+import { User } from '../graphql/types';
+import { supabase, signInWithEmail, signOut, getCurrentSession } from '../lib/supabase';
 
-const API_BASE_URL = 'https://host-inventory-sync.netlify.app/api';
+const API_BASE_URL = 'https://deploy-preview-3--host-inventory-sync.netlify.app/api';
 
 export interface LoginCredentials {
   email: string;
   password: string;
 }
 
-export interface RegisterCredentials {
-  email: string;
-  password: string;
-  name: string;
-}
-
 export interface LoginResponse {
   token: string;
   user: User;
-}
-
-export interface RegisterResponse {
-  token: string;
-  user: User;
+  accounts: any[];
+  currentAccount: any;
 }
 
 class AuthService {
@@ -83,59 +75,92 @@ class AuthService {
   }
 
   async login(credentials: LoginCredentials): Promise<LoginResponse> {
-    console.log('🔐 Attempting login with:', { email: credentials.email });
+    console.log('🔐 Attempting Supabase login with:', { email: credentials.email });
 
-    return this.makeRequest<LoginResponse>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-    });
-  }
+    try {
+      // Step 1: Authenticate with Supabase
+      const { user, accessToken } = await signInWithEmail(credentials.email, credentials.password);
 
-  async register(credentials: RegisterCredentials): Promise<RegisterResponse> {
-    console.log('📝 Attempting registration with:', {
-      email: credentials.email,
-      name: credentials.name,
-    });
+      if (!user || !accessToken) {
+        throw new Error('Authentication failed');
+      }
 
-    return this.makeRequest<RegisterResponse>('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-    });
+      // Store the Supabase access token
+      await AsyncStorage.setItem('supabaseAccessToken', accessToken);
+
+      // Step 2: Get user's accounts from GraphQL API
+      const accounts = await this.getUserAccounts(accessToken);
+
+      if (accounts.length === 0) {
+        throw new Error('User has no accounts. Contact administrator.');
+      }
+
+      // Step 3: Set default account context (usually the first account)
+      const defaultAccount = accounts[0];
+      await AsyncStorage.setItem('currentAccountId', defaultAccount.id);
+
+      // Step 4: Get user info from GraphQL API
+      const userInfo = await this.getUserInfo(accessToken);
+
+      // Store user info and account context
+      await AsyncStorage.setItem('user', JSON.stringify(userInfo));
+
+      return {
+        token: accessToken,
+        user: userInfo,
+        accounts,
+        currentAccount: defaultAccount,
+      };
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
   }
 
   async logout(): Promise<void> {
     try {
       console.log('🚪 Attempting logout...');
 
-      // If your server has a logout endpoint, call it here
-      // await this.makeRequest('/auth/logout', { method: 'POST' });
+      // Sign out from Supabase
+      await signOut();
 
-      // For now, just clear local storage
-      await AsyncStorage.multiRemove(['authToken', 'user']);
+      // Clear local storage
+      await AsyncStorage.multiRemove([
+        'supabaseAccessToken',
+        'user',
+        'authToken',
+        'currentAccountId',
+      ]);
       console.log('✅ Logout successful');
     } catch (error) {
       console.error('❌ Logout error:', error);
       // Even if the server call fails, clear local storage
-      await AsyncStorage.multiRemove(['authToken', 'user']);
+      await AsyncStorage.multiRemove([
+        'supabaseAccessToken',
+        'user',
+        'authToken',
+        'currentAccountId',
+      ]);
     }
   }
 
   async refreshToken(): Promise<string | null> {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) return null;
+      const session = await getCurrentSession();
+      if (!session) return null;
 
       console.log('🔄 Attempting token refresh...');
 
-      // If your server has a refresh endpoint, implement it here
-      // const response = await this.makeRequest<{ token: string }>('/auth/refresh', {
-      //   method: 'POST',
-      //   headers: { Authorization: `Bearer ${token}` },
-      // });
-      // return response.token;
+      // Supabase handles token refresh automatically
+      const accessToken = session.access_token;
 
-      console.log('ℹ️ Token refresh not implemented, returning existing token');
-      return token;
+      if (accessToken) {
+        await AsyncStorage.setItem('supabaseAccessToken', accessToken);
+        console.log('✅ Token refreshed successfully');
+        return accessToken;
+      }
+
+      return null;
     } catch (error) {
       console.error('❌ Token refresh error:', error);
       return null;
@@ -146,15 +171,10 @@ class AuthService {
     try {
       console.log('🔍 Validating token...');
 
-      // If your server has a validate endpoint, implement it here
-      // await this.makeRequest('/auth/validate', {
-      //   method: 'POST',
-      //   headers: { Authorization: `Bearer ${token}` },
-      // });
-      // return true;
+      // Try to get user info with the token to validate it
+      const userInfo = await this.getUserInfo(token);
+      const isValid = !!userInfo;
 
-      // For now, just check if token exists and has valid format
-      const isValid = token.length > 0 && token.includes('.');
       console.log(`✅ Token validation: ${isValid ? 'valid' : 'invalid'}`);
       return isValid;
     } catch (error) {
@@ -163,16 +183,147 @@ class AuthService {
     }
   }
 
+  // Step 2: Get user's accounts from GraphQL API
+  public async getUserAccounts(accessToken: string): Promise<any[]> {
+    console.log('📋 Getting user accounts...');
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/graphql`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+          'x-client-id': 'mobile-app-v1',
+        },
+        body: JSON.stringify({
+          query: `
+            query GetMyAccounts {
+              myAccounts {
+                id
+                name
+                description
+                createdAt
+                updatedAt
+                properties {
+                  id
+                  name
+                  address
+                  description
+                  barcode
+                  createdAt
+                  updatedAt
+                }
+                accountUsers {
+                  id
+                  role
+                  isActive
+                  user {
+                    id
+                    name
+                    email
+                  }
+                }
+              }
+            }
+          `,
+        }),
+      });
+
+      console.log('📡 GraphQL response status:', response.status, response.statusText);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ GraphQL request failed:', errorText);
+        throw new Error(`GraphQL request failed: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('📋 GraphQL response:', JSON.stringify(result, null, 2));
+
+      if (result.errors) {
+        console.error('❌ GraphQL errors:', result.errors);
+        throw new Error(result.errors[0]?.message || 'Failed to get user accounts');
+      }
+
+      console.log(`✅ Found ${result.data.myAccounts.length} accounts`);
+      return result.data.myAccounts;
+    } catch (error) {
+      console.error('❌ Error in getUserAccounts:', error);
+      throw error;
+    }
+  }
+
+  public async getUserInfo(accessToken: string): Promise<User> {
+    console.log('👤 Getting user info...');
+
+    try {
+      // Make a request to the GraphQL API to get user info
+      const response = await fetch(`${API_BASE_URL}/graphql`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+          'x-client-id': 'mobile-app-v1',
+        },
+        body: JSON.stringify({
+          query: `
+            query GetMe {
+              me {
+                id
+                email
+                name
+                createdAt
+                updatedAt
+              }
+            }
+          `,
+        }),
+      });
+
+      console.log('📡 GetMe response status:', response.status, response.statusText);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ GetMe request failed:', errorText);
+        throw new Error(`Failed to get user info: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('👤 GetMe response:', JSON.stringify(result, null, 2));
+
+      if (result.errors) {
+        console.error('❌ GetMe GraphQL errors:', result.errors);
+        throw new Error(result.errors[0]?.message || 'Failed to get user info');
+      }
+
+      return result.data.me;
+    } catch (error) {
+      console.error('❌ Error in getUserInfo:', error);
+      throw error;
+    }
+  }
+
   // Test method to check server connectivity
   async testConnection(): Promise<boolean> {
     try {
       console.log('🧪 Testing server connectivity...');
 
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: 'OPTIONS', // Use OPTIONS to test connectivity without sending data
+      const response = await fetch(`${API_BASE_URL}/graphql`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-client-id': 'mobile-app-v1',
+        },
+        body: JSON.stringify({
+          query: `
+            query TestConnection {
+              __typename
+            }
+          `,
+        }),
       });
 
-      const isConnected = response.status !== 0; // 0 usually means network error
+      const isConnected = response.ok;
       console.log(`✅ Server connectivity test: ${isConnected ? 'successful' : 'failed'}`);
 
       return isConnected;

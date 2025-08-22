@@ -20,7 +20,8 @@ export interface List {
 export type PropertiesStackParamList = {
   PropertySelection: undefined;
   PropertyDetails: { propertyId: string };
-  RoomDetails: { roomId: string; roomName: string; propertyId: string };
+  ListDetails: { listId: string; listName: string; propertyId: string };
+  AddItem: { listId: string; propertyId: string };
 };
 
 export type MainTabParamList = {
@@ -39,9 +40,11 @@ export type RootStackParamList = {
         scannedBarcode?: string;
         propertyId?: string;
         roomId?: string;
+        listId?: string;
         onPropertyScanned?: (propertyId: string) => void;
         onRoomScanned?: (roomId: string) => void;
-        onItemScanned?: (itemId: string) => void;
+        onItemScanned?: (barcode: string) => void;
+        onScanCancelled?: () => void;
       }
     | undefined;
 };

@@ -1,131 +1,167 @@
-// Base types
-export interface BaseEntity {
+// Core types matching the remote GraphQL schema
+export interface User {
   id: string;
+  email: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  accounts: AccountUser[];
+  invitations: Invitation[];
+}
+
+export interface Account {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+  properties: Property[];
+  accountUsers: AccountUser[];
+  invitations: Invitation[];
+}
+
+export interface AccountUser {
+  id: string;
+  account: Account;
+  user: User;
+  role: UserRole;
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
-// User types
-export interface User extends BaseEntity {
-  email: string;
-  name?: string;
-}
-
-export interface AuthResponse {
-  token: string;
-  user: User;
-}
-
-// Property types
-export interface Property extends BaseEntity {
+export interface Property {
+  id: string;
+  account: Account;
   name: string;
   address: string;
-  rooms?: Room[];
+  description?: string;
+  barcode?: string;
+  createdAt: string;
+  updatedAt: string;
+  lists: List[];
+}
+
+export interface List {
+  id: string;
+  property: Property;
+  name: string;
+  description?: string;
+  barcode?: string;
+  createdAt: string;
+  updatedAt: string;
+  items: Item[];
+}
+
+export interface Item {
+  id: string;
+  list: List;
+  name: string;
+  description?: string;
+  quantity: number;
+  condition: ItemCondition;
+  estimatedValue?: number;
+  imageUrl?: string;
+  barcode?: string;
+  isCompleted: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Invitation {
+  id: string;
+  email: string;
+  account: Account;
+  role: InvitationRole;
+  invitedBy: User;
+  token: string;
+  expiresAt: string;
+  isAccepted: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Enums
+export type UserRole = 'primary' | 'admin' | 'user';
+export type InvitationRole = 'admin' | 'user';
+export type ItemCondition = 'NEW' | 'GOOD' | 'FAIR' | 'POOR' | 'DAMAGED';
+
+// Input types for mutations
+export interface CreateAccountInput {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateAccountInput {
+  name?: string;
+  description?: string;
 }
 
 export interface CreatePropertyInput {
+  accountId: string;
   name: string;
   address: string;
+  description?: string;
+  barcode?: string;
 }
 
 export interface UpdatePropertyInput {
   name?: string;
   address?: string;
+  description?: string;
+  barcode?: string;
 }
 
-// Room types
-export interface Room extends BaseEntity {
+export interface CreateListInput {
+  propertyId: string;
   name: string;
   description?: string;
-  propertyId: string;
-  items?: Item[];
+  barcode?: string;
 }
 
-export interface CreateRoomInput {
-  name: string;
-  description?: string;
-  propertyId: string;
-}
-
-export interface UpdateRoomInput {
+export interface UpdateListInput {
   name?: string;
   description?: string;
-}
-
-// Item types (for room items)
-export interface Item extends BaseEntity {
-  name: string;
-  description?: string;
-  quantity: number;
-  condition?: string;
-  estimatedValue?: number;
-  isCompleted: boolean;
-  roomId: string;
-}
-
-export enum ItemStatus {
-  ACTIVE = 'ACTIVE',
-  INACTIVE = 'INACTIVE',
-  MAINTENANCE = 'MAINTENANCE',
-  RETIRED = 'RETIRED',
+  barcode?: string;
 }
 
 export interface CreateItemInput {
+  listId: string;
   name: string;
   description?: string;
-  status: ItemStatus;
-  roomId: string;
+  quantity?: number;
+  condition?: ItemCondition;
+  estimatedValue?: number;
+  imageUrl?: string;
+  barcode?: string;
 }
 
 export interface UpdateItemInput {
   name?: string;
   description?: string;
   quantity?: number;
-  condition?: string;
+  condition?: ItemCondition;
   estimatedValue?: number;
+  imageUrl?: string;
+  barcode?: string;
   isCompleted?: boolean;
 }
 
-// List types
-export interface List extends BaseEntity {
-  title: string;
-  barcode?: string;
-  items: ListItem[];
+export interface InviteUserInput {
+  accountId: string;
+  email: string;
+  role: InvitationRole;
 }
 
-export interface ListItem extends BaseEntity {
-  text: string;
-  completed: boolean;
-  imageUrl?: string;
+export interface AcceptInvitationInput {
+  token: string;
+  userId: string;
 }
 
-export interface CreateListInput {
-  title: string;
-  barcode?: string;
-  items?: CreateListItemInput[];
-}
-
-export interface UpdateListInput {
-  title?: string;
-  barcode?: string;
-}
-
-export interface CreateListItemInput {
-  text: string;
-  imageUrl?: string;
-}
-
-export interface UpdateListItemInput {
-  text?: string;
-  completed?: boolean;
-  imageUrl?: string;
-}
-
-// Search types
-export interface BarcodeSearchResult {
-  type: 'PROPERTY' | 'ROOM' | 'ITEM' | 'LIST';
-  id: string;
-  data: Property | Room | Item | List;
+export interface UpdateUserRoleInput {
+  accountId: string;
+  userId: string;
+  role: UserRole;
 }
 
 // API Response types
