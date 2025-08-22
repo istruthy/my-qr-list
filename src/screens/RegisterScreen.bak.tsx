@@ -16,47 +16,47 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const { register } = useAuth();
+  // const { register } = useAuth();
 
-  const handleRegister = async () => {
-    if (!name.trim() || !email.trim() || !password || !confirmPassword) {
-      Alert.alert('Error', 'Please fill in all fields');
-      return;
-    }
+  // const handleRegister = async () => {
+  //   if (!name.trim() || !email.trim() || !password || !confirmPassword) {
+  //     Alert.alert('Error', 'Please fill in all fields');
+  //     return;
+  //   }
 
-    if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
-      return;
-    }
+  //   if (password !== confirmPassword) {
+  //     Alert.alert('Error', 'Passwords do not match');
+  //     return;
+  //   }
 
-    if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters long');
-      return;
-    }
+  //   if (password.length < 6) {
+  //     Alert.alert('Error', 'Password must be at least 6 characters long');
+  //     return;
+  //   }
 
-    setIsLoading(true);
-    try {
-      await register(email.trim(), password, name.trim());
-      Alert.alert('Success', 'Account created successfully!', [{ text: 'OK' }]);
-      // Navigation will be handled automatically by the auth context
-    } catch (error: any) {
-      let message = 'Registration failed. Please try again.';
+  //   setIsLoading(true);
+  //   try {
+  //     await register(email.trim(), password, name.trim());
+  //     Alert.alert('Success', 'Account created successfully!', [{ text: 'OK' }]);
+  //     // Navigation will be handled automatically by the auth context
+  //   } catch (error: any) {
+  //     let message = 'Registration failed. Please try again.';
 
-      if (error.message) {
-        message = error.message;
-      } else if (error.status === 409) {
-        message = 'An account with this email already exists';
-      } else if (error.status === 400) {
-        message = 'Invalid input. Please check your information.';
-      } else if (error.status >= 500) {
-        message = 'Server error. Please try again later.';
-      }
+  //     if (error.message) {
+  //       message = error.message;
+  //     } else if (error.status === 409) {
+  //       message = 'An account with this email already exists';
+  //     } else if (error.status === 400) {
+  //       message = 'Invalid input. Please check your information.';
+  //     } else if (error.status >= 500) {
+  //       message = 'Server error. Please try again later.';
+  //     }
 
-      Alert.alert('Registration Error', message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  //     Alert.alert('Registration Error', message);
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
 
   const handleLoginPress = () => {
     navigation.navigate('Login');
